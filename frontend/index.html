@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Dashboard - Online</title>
+    <link rel="stylesheet" href="/src/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        // API Configuration - Change this to your Render API URL
+        window.API_BASE_URL = window.location.hostname === 'localhost'
+            ? 'http://localhost:3000'
+            : 'https://your-api-service.onrender.com';
+
+        // Python Analytics Service URL
+        window.PYTHON_API_URL = window.location.hostname === 'localhost'
+            ? 'http://localhost:8000'
+            : 'https://your-python-service.onrender.com';
+
+        // Loading safeguard
+        setTimeout(function () {
+            const loadingScreen = document.getElementById('loadingScreen');
+            const appContainer = document.getElementById('appContainer');
+            if (loadingScreen && loadingScreen.style.display !== 'none') {
+                console.warn('⚠️ Dashboard taking too long to load, forcing display');
+                if (loadingScreen) loadingScreen.style.display = 'none';
+                if (appContainer) appContainer.style.display = 'flex';
+                document.body.style.visibility = 'visible';
+            }
+        }, 5000);
+
+        window.onerror = function (msg, url, lineNo, columnNo, error) {
+            console.error('JavaScript Error:', msg, 'at', url, ':', lineNo);
+            return false;
+        };
+    </script>
+</head>
+
+<body>
+
+    <!-- LOGIN AUTHENTICATION SCREEN -->
+    <div id="loginScreen" class="login-screen" style="display: flex;">
+        <div class="login-container">
+            <div class="login-header">
+                <div class="login-logo">🔐</div>
+                <h2>Personal Dashboard</h2>
+                <p>Please enter your credentials to access your dashboard</p>
+            </div>
+            <form id="loginForm" class="login-form">
+                <div class="input-group">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" required placeholder="Enter your username"
+                        autocomplete="username">
+                </div>
+                <div class="input-group">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" required placeholder="Enter your password"
+                        autocomplete="current-password">
+                </div>
+                <button type="submit" class="login-btn">
+                    <span class="btn-text">Login</span>
+                    <span class="btn-icon">→</span>
+                </button>
+                <div id="loginMessage" class="login-message"></div>
+                <div class="login-credentials">
+                    <small>💡 Welcome to your online dashboard!</small>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APPLICATION WRAPPER -->
+    <div id="mainApp" class="main-app" style="display: none;">
+        <!-- Loading Screen -->
+        <div id="loadingScreen" class="loading-screen">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Dashboard</div>
+            <div class="loading-subtext">Loading your experience...</div>
+        </div>
+
+        <!-- Main App Container -->
+        <div id="appContainer" class="app-container">
+
+            <!-- Sidebar Navigation -->
+            <aside id="sidebar" class="sidebar">
+                <div class="sidebar-header">
+                    <div class="app-logo">
+                        <i data-lucide="database" class="logo-icon"></i>
+                        <h1>LifeVault</h1>
+                    </div>
+                    <button id="sidebarToggle" class="sidebar-toggle" title="Toggle Sidebar">
+                        <i data-lucide="panel-left-close"></i>
+                    </button>
+                </div>
+
+                <nav class="sidebar-nav">
+                    <!-- Main Section -->
+                    <div class="nav-group">
+                        <div class="nav-group-title">Main</div>
+                        <a href="#" class="nav-link active" data-section="dashboard">
+                            <i data-lucide="layout-dashboard" class="nav-icon"></i>
+                            <span>Dashboard</span>
+                        </a>
+                    </div>
+
+                    <!-- Personal & Family Section -->
+                    <div class="nav-group">
+                        <div class="nav-group-title">Personal & Family</div>
+                        <a href="#" class="nav-link" data-section="personal_info">
+                            <i data-lucide="user" class="nav-icon"></i>
+                            <span>Personal Info</span>
+                        </a>
+                        <a href="#" class="nav-link" data-section="family_members">
+                            <i data-lucide="users" class="nav-icon"></i>
+                            <span>Family Members</span>
+                        </a>
+                        <a href="#" class="nav-link" data-section="family-tree">
+                            <i data-lucide="git-branch" class="nav-icon"></i>
+                            <span>Family Tree</span>
+                        </a>
+                    </div>
+
+                    <!-- Financial Section -->
+                    <div class="nav-group">
+                        <div class="nav-group-title">Financial</div>
+                        <a href="#" class="nav-link" data-section="shareholdings">
+                            <i data-lucide="trending-up" class="nav-icon"></i>
+                            <span>Shareholdings</span>
+                        </a>
+                        <a href="#" class="nav-link" data-section="banking_details">
+                            <i data-lucide="landmark" class="nav-icon"></i>
+                            <span>Banking Details</span>
+                        </a>
+                        <a href="#" class="nav-link" data-section="stocks">
+                            <i data-lucide="bar-chart-3" class="nav-icon"></i>
+                            <span>Stocks & Investments</span>
+                        </a>
+                        <a href="#" class="nav-link" data-section="policies">
+                            <i data-lucide="shield-check" class="nav-icon"></i>
+                            <span>Insurance Policies</span>
+                        </a>
+                        <a href="#" class="nav-link" data-section="loans">
+                            <i data-lucide="banknote" class="nav-icon"></i>
+                            <span>Loans</span>
+                        </a>
+                        <a href="#" class="nav-link" data-section="income_sheet">
+                            <i data-lucide="trending-up" class="nav-icon"></i>
+                            <span>Income Sheet</span>
+                        </a>
+                    </div>
+
+                    <!-- Assets & Properties Section -->
+                    <div class="nav-group">
+                        <div class="nav-group-title">Assets & Properties</div>
+                        <a href="#" class="nav-link" data-section="properties">
+                            <i data-lucide="home" class="nav-icon"></i>
+                            <span>Properties</span>
+                        </a>
+                        <a href="#" class="nav-link" data-section="assets">
+                            <i data-lucide="gem" class="nav-icon"></i>
+                            <span>Assets</span>
+                        </a>
+                    </div>
+
+                    <!-- Business Section -->
+                    <div class="nav-group">
+                        <div class="nav-group-title">Business</div>
+                        <a href="#" class="nav-link" data-section="business_info">
+                            <i data-lucide="building-2" class="nav-icon"></i>
+                            <span>Business Info</span>
+                        </a>
+                    </div>
+
+                    <!-- Utilities Section -->
+                    <div class="nav-group">
+                        <div class="nav-group-title">Utilities</div>
+                        <a href="#" class="nav-link" data-section="reminders">
+                            <i data-lucide="bell" class="nav-icon"></i>
+                            <span>Reminders</span>
+                        </a>
+                        <a href="#" class="nav-link" data-section="files">
+                            <i data-lucide="folder-open" class="nav-icon"></i>
+                            <span>Files & Documents</span>
+                        </a>
+                    </div>
+                </nav>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="main-container">
+
+                <!-- Header -->
+                <header class="header">
+                    <div class="header-left">
+                        <button id="mobileMenuBtn" class="mobile-menu-btn" title="Menu">
+                            <i data-lucide="menu"></i>
+                        </button>
+                        <nav class="breadcrumb" id="breadcrumb">
+                            <a href="#" data-section="dashboard" class="breadcrumb-item">
+                                <i data-lucide="home" class="breadcrumb-icon"></i>
+                                <span>Home</span>
+                            </a>
+                            <span class="breadcrumb-separator">/</span>
+                            <span class="breadcrumb-current">Dashboard</span>
+                        </nav>
+                    </div>
+
+                    <div class="header-actions">
+                        <button id="globalSearchBtn" class="header-btn" title="Search">
+                            <i data-lucide="search"></i>
+                        </button>
+                        <div class="user-menu" id="userMenu">
+                            <button id="userMenuBtn" class="user-menu-btn" title="User Menu">
+                                <i data-lucide="user-circle"></i>
+                            </button>
+                            <div class="user-dropdown" id="userDropdown">
+                                <div class="user-dropdown-header">
+                                    <i data-lucide="user-circle" class="dropdown-user-icon"></i>
+                                    <div class="user-info">
+                                        <span class="user-name" id="userName">User</span>
+                                        <span class="user-role" id="userRole">Logged In</span>
+                                    </div>
+                                </div>
+                                <div class="user-dropdown-divider"></div>
+                                <button class="dropdown-item" id="logoutBtn">
+                                    <i data-lucide="log-out"></i>
+                                    <span>Logout</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Main Content -->
+                <div class="main-content">
+
+                    <!-- Dashboard Section -->
+                    <section id="dashboard" class="section-content active">
+
+                        <!-- Welcome Section -->
+                        <div class="dashboard-welcome">
+                            <div class="welcome-content">
+                                <h1 class="welcome-title">Welcome to Dashboard</h1>
+                                <div class="welcome-stats">
+                                    <div class="welcome-stat">
+                                        <span class="welcome-stat-value" id="totalRecords">0</span>
+                                        <span class="welcome-stat-label">Total Records</span>
+                                    </div>
+                                    <div class="welcome-stat">
+                                        <span class="welcome-stat-value" id="totalFiles">0</span>
+                                        <span class="welcome-stat-label">Files Stored</span>
+                                    </div>
+                                    <div class="welcome-stat">
+                                        <span class="welcome-stat-value" id="activeReminders">0</span>
+                                        <span class="welcome-stat-label">Active Reminders</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Statistics Grid -->
+                        <div class="dashboard-grid">
+                            <div class="stat-card primary" data-section="personal_info">
+                                <div class="stat-header">
+                                    <div class="stat-title">Personal Info</div>
+                                    <div class="stat-icon">👤</div>
+                                </div>
+                                <div class="stat-value" id="personal_info_count">0</div>
+                                <div class="stat-subtitle">
+                                    Records
+                                </div>
+                            </div>
+
+                            <div class="stat-card success" data-section="properties">
+                                <div class="stat-header">
+                                    <div class="stat-title">Properties</div>
+                                    <div class="stat-icon">🏠</div>
+                                </div>
+                                <div class="stat-value" id="properties_count">0</div>
+                                <div class="stat-subtitle">
+                                    Properties
+                                </div>
+                            </div>
+
+                            <div class="stat-card warning" data-section="assets">
+                                <div class="stat-header">
+                                    <div class="stat-title">Assets</div>
+                                    <div class="stat-icon">💎</div>
+                                </div>
+                                <div class="stat-value" id="assets_count">0</div>
+                                <div class="stat-subtitle">
+                                    Items
+                                </div>
+                            </div>
+
+                            <div class="stat-card info" data-section="banking_details">
+                                <div class="stat-header">
+                                    <div class="stat-title">Bank Accounts</div>
+                                    <div class="stat-icon">🏦</div>
+                                </div>
+                                <div class="stat-value" id="banking_details_count">0</div>
+                                <div class="stat-subtitle">
+                                    Accounts
+                                </div>
+                            </div>
+
+                            <div class="stat-card primary" data-section="stocks">
+                                <div class="stat-header">
+                                    <div class="stat-title">Investments</div>
+                                    <div class="stat-icon">📊</div>
+                                </div>
+                                <div class="stat-value" id="stocks_count">0</div>
+                                <div class="stat-subtitle">
+                                    Holdings
+                                </div>
+                            </div>
+
+                            <div class="stat-card warning" data-section="policies">
+                                <div class="stat-header">
+                                    <div class="stat-title">Policies</div>
+                                    <div class="stat-icon">🛡️</div>
+                                </div>
+                                <div class="stat-value" id="policies_count">0</div>
+                                <div class="stat-subtitle">
+                                    Active
+                                </div>
+                            </div>
+
+                            <div class="stat-card info" data-section="loans">
+                                <div class="stat-header">
+                                    <div class="stat-title">Loans</div>
+                                    <div class="stat-icon">💰</div>
+                                </div>
+                                <div class="stat-value" id="loans_count">0</div>
+                                <div class="stat-subtitle">
+                                    Active
+                                </div>
+                            </div>
+
+                            <div class="stat-card warning" data-section="family_members">
+                                <div class="stat-header">
+                                    <div class="stat-title">Family Members</div>
+                                    <div class="stat-icon">👨‍👩‍👧‍👦</div>
+                                </div>
+                                <div class="stat-value" id="family_members_count">0</div>
+                                <div class="stat-subtitle">
+                                    Members
+                                </div>
+                            </div>
+
+                            <div class="stat-card info" data-section="shareholdings">
+                                <div class="stat-header">
+                                    <div class="stat-title">Shareholding</div>
+                                    <div class="stat-icon">📊</div>
+                                </div>
+                                <div class="stat-value" id="shareholdings_count">0</div>
+                                <div class="stat-subtitle">
+                                    Share Holdings
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Dashboard Sections -->
+                        <div class="dashboard-sections">
+                            <div class="dashboard-section">
+                                <div class="section-header">
+                                    <div class="section-icon">🚀</div>
+                                    <h3 class="section-title">Quick Actions</h3>
+                                </div>
+                                <div class="actions-grid">
+                                    <div class="action-card" data-action="add-personal">
+                                        <span class="action-icon">👤</span>
+                                        <div class="action-title">Add Personal Info</div>
+                                    </div>
+                                    <div class="action-card" data-action="add-property">
+                                        <span class="action-icon">🏠</span>
+                                        <div class="action-title">Add Property</div>
+                                    </div>
+                                    <div class="action-card" data-action="add-self">
+                                        <span class="action-icon">👤</span>
+                                        <div class="action-title">Add Yourself</div>
+                                    </div>
+                                    <div class="action-card" data-action="add-reminder">
+                                        <span class="action-icon">🔔</span>
+                                        <div class="action-title">Set Reminder</div>
+                                    </div>
+                                    <div class="action-card" data-action="export-data">
+                                        <span class="action-icon">📤</span>
+                                        <div class="action-title">Export Data</div>
+                                    </div>
+                                    <div class="action-card" data-action="analytics">
+                                        <span class="action-icon">📈</span>
+                                        <div class="action-title">View Analytics</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="dashboard-section">
+                                <div class="section-header">
+                                    <div class="section-icon">🔔</div>
+                                    <h3 class="section-title">Upcoming Reminders</h3>
+                                </div>
+                                <div id="upcomingReminders">
+                                    <div class="empty-state">
+                                        <div class="empty-icon">🔔</div>
+                                        <h3>No Upcoming Reminders</h3>
+                                        <p>All your reminders are completed or in the past</p>
+                                        <button class="btn btn-primary" onclick="app.showSection('reminders')">
+                                            <span>Create First Reminder</span>
+                                            <span>→</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Recent Activity Section -->
+                        <div class="dashboard-section">
+                            <div class="section-header">
+                                <div class="section-icon">📈</div>
+                                <h3 class="section-title">Recent Activity</h3>
+                            </div>
+                            <div id="recentActivity">
+                                <div id="recentActivityList">
+                                    <div class="empty-state">
+                                        <div class="empty-icon">📊</div>
+                                        <h3>No Recent Activity</h3>
+                                        <p>Start adding data to see your activity timeline</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Table Section (for all data tables) -->
+                    <section id="tableSection" class="section-content">
+                        <div class="table-header">
+                            <div class="table-info">
+                                <h2 id="tableTitle">Data Table</h2>
+                                <p id="tableDescription">Manage your data</p>
+                            </div>
+                            <div class="section-actions">
+                                <button id="exportBtn" class="btn btn-secondary">
+                                    <span>📤</span>
+                                    <span>Export</span>
+                                </button>
+                                <button id="importBtn" class="btn btn-secondary">
+                                    <span>📥</span>
+                                    <span>Import</span>
+                                </button>
+                                <button id="addRecordBtn" class="btn btn-primary">
+                                    <span>➕</span>
+                                    <span>Add New</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="table-controls">
+                            <div class="table-search">
+                                <input type="text" id="tableSearch" class="search-input"
+                                    placeholder="Search in table...">
+                                <span class="search-icon">🔍</span>
+                            </div>
+                            <div class="table-filters">
+                                <!-- Filters can be added here dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- Optional chart area for specific tables (e.g., Shareholdings) -->
+                        <div id="tableChartContainer" class="table-chart-container" style="display: none;"></div>
+
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead id="tableHead">
+                                    <tr>
+                                        <th>Loading...</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tableBody">
+                                    <tr>
+                                        <td>Loading data...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="pagination">
+                            <div id="paginationInfo" class="pagination-info">Showing 0 records</div>
+                            <div class="pagination-controls">
+                                <button id="firstPage" class="pagination-btn">«</button>
+                                <button id="prevPage" class="pagination-btn">‹</button>
+                                <div id="paginationPages" class="pagination-pages"></div>
+                                <button id="nextPage" class="pagination-btn">›</button>
+                                <button id="lastPage" class="pagination-btn">»</button>
+                            </div>
+                        </div>
+
+                        <div id="emptyState" class="empty-state" style="display: none;">
+                            <div class="empty-icon">📝</div>
+                            <h3>No Records Found</h3>
+                            <p>Start by adding your first record to this section</p>
+                            <button class="btn btn-primary" onclick="app.showRecordForm()">
+                                <span>➕</span>
+                                <span>Add First Record</span>
+                            </button>
+                        </div>
+                    </section>
+
+                    <!-- Family Tree Section -->
+                    <section id="familyTreeSection" class="section-content family-tree-section">
+                        <!-- Content will be generated by JavaScript -->
+                    </section>
+
+                </div>
+            </main>
+        </div>
+
+        <!-- Floating Action Button -->
+        <div class="fab-container">
+            <button id="fabBtn" class="fab-btn" title="Quick Add">
+                <i data-lucide="plus"></i>
+            </button>
+            <div class="fab-menu" id="fabMenu">
+                <button class="fab-item" data-action="add-personal" title="Add Personal Info">
+                    <i data-lucide="user"></i>
+                    <span>Personal</span>
+                </button>
+                <button class="fab-item" data-action="add-family" title="Add Family Member">
+                    <i data-lucide="users"></i>
+                    <span>Family</span>
+                </button>
+                <button class="fab-item" data-action="add-property" title="Add Property">
+                    <i data-lucide="home"></i>
+                    <span>Property</span>
+                </button>
+                <button class="fab-item" data-action="add-reminder" title="Set Reminder">
+                    <i data-lucide="bell"></i>
+                    <span>Reminder</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Global Search Modal -->
+        <div id="searchModal" class="search-modal">
+            <div class="search-container">
+                <div class="search-input-wrapper">
+                    <i data-lucide="search" class="search-icon"></i>
+                    <input type="text" id="globalSearchInput" class="search-input"
+                        placeholder="Search records, files, reminders..." autocomplete="off">
+                    <kbd class="search-kbd">ESC</kbd>
+                </div>
+                <div class="search-results" id="searchResults"></div>
+                <div class="search-footer">
+                    <div class="search-hints">
+                        <span><kbd>↑</kbd> <kbd>↓</kbd> Navigate</span>
+                        <span><kbd>↵</kbd> Select</span>
+                        <span><kbd>esc</kbd> Close</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Keyboard Shortcuts Modal -->
+        <div id="shortcutsModal" class="shortcuts-modal">
+            <div class="shortcuts-content">
+                <div class="shortcuts-header">
+                    <h3>Keyboard Shortcuts</h3>
+                    <button id="closeShortcuts" class="modal-close">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+                <div class="shortcuts-body">
+                    <div class="shortcut-group">
+                        <h4>General</h4>
+                        <div class="shortcut-item">
+                            <span class="shortcut-keys"><kbd>?</kbd></span>
+                            <span class="shortcut-desc">Show keyboard shortcuts</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-keys"><kbd>⌘</kbd> <kbd>K</kbd></span>
+                            <span class="shortcut-desc">Open global search</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-keys"><kbd>⌘</kbd> <kbd>B</kbd></span>
+                            <span class="shortcut-desc">Toggle sidebar</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-keys"><kbd>⌘</kbd> <kbd>T</kbd></span>
+                            <span class="shortcut-desc">Toggle theme</span>
+                        </div>
+                    </div>
+                    <div class="shortcut-group">
+                        <h4>Navigation</h4>
+                        <div class="shortcut-item">
+                            <span class="shortcut-keys"><kbd>g</kbd> <kbd>h</kbd></span>
+                            <span class="shortcut-desc">Go to Home</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-keys"><kbd>g</kbd> <kbd>p</kbd></span>
+                            <span class="shortcut-desc">Go to Personal Info</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-keys"><kbd>g</kbd> <kbd>f</kbd></span>
+                            <span class="shortcut-desc">Go to Family</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-keys"><kbd>g</kbd> <kbd>r</kbd></span>
+                            <span class="shortcut-desc">Go to Reminders</span>
+                        </div>
+                    </div>
+                    <div class="shortcut-group">
+                        <h4>Actions</h4>
+                        <div class="shortcut-item">
+                            <span class="shortcut-keys"><kbd>n</kbd></span>
+                            <span class="shortcut-desc">New record</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-keys"><kbd>⌘</kbd> <kbd>↵</kbd></span>
+                            <span class="shortcut-desc">Save form</span>
+                        </div>
+                        <div class="shortcut-item">
+                            <span class="shortcut-keys"><kbd>esc</kbd></span>
+                            <span class="shortcut-desc">Close modal / Cancel</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Record Form Modal -->
+        <div id="modalOverlay" class="modal-overlay">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Add Record</h3>
+                    <button id="modalClose" class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <form id="recordForm" class="record-form">
+                        <div id="formFields" class="form-grid">
+                            <!-- Form fields will be generated dynamically -->
+                        </div>
+
+                        <!-- File Upload Section -->
+                        <div class="file-upload-section">
+                            <div class="file-upload-header">
+                                <h4>📎 File Attachments</h4>
+                                <small>Upload documents, images, and other files related to this record</small>
+                            </div>
+
+                            <div id="fileDropZone" class="file-drop-zone">
+                                <span class="upload-icon">📁</span>
+                                <h4>Drop files here or click to browse</h4>
+                                <p>Support for PDF, DOC, XLS, images and more</p>
+                                <div class="upload-formats">
+                                    <small>Supported: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF (Max: 10MB each)</small>
+                                </div>
+                            </div>
+
+                            <input type="file" id="fileInput" class="file-input" multiple
+                                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv">
+
+                            <div id="uploadedFiles" class="uploaded-files">
+                                <div class="files-list" id="filesList">
+                                    <!-- Uploaded files will appear here -->
+                                </div>
+                            </div>
+                        </div>
+
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="cancelBtn" class="btn btn-secondary">
+                        <span>Cancel</span>
+                    </button>
+                    <button type="submit" id="saveBtn" class="btn btn-primary" form="recordForm">
+                        <span id="saveBtnText">Save Record</span>
+                        <span>💾</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- File Preview Modal -->
+        <div id="filePreviewModal" class="modal-overlay">
+            <div class="modal file-preview-modal">
+                <div class="modal-header">
+                    <h3 id="filePreviewTitle">File Preview</h3>
+                    <button id="filePreviewClose" class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="filePreviewContent">
+                        <!-- Preview content will be inserted here -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="filePreviewDownload" class="btn btn-primary">
+                        <span>Download File</span>
+                        <span>📥</span>
+                    </button>
+                    <button type="button" id="filePreviewCloseBtn" class="btn btn-secondary">
+                        <span>Close</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Confirmation Modal -->
+        <div id="confirmModalOverlay" class="modal-overlay">
+            <div class="modal confirmation-modal">
+                <div class="modal-header">
+                    <h3 id="confirmTitle">Confirm Action</h3>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmMessage">Are you sure you want to proceed?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" id="confirmCancel" class="btn btn-secondary">Cancel</button>
+                    <button type="button" id="confirmOk" class="btn btn-success">Confirm</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Container -->
+        <div id="toastContainer" class="toast-container">
+            <!-- Toast notifications will appear here -->
+        </div>
+
+        <!-- Hidden Import File Input -->
+        <input type="file" id="importFileInput" accept=".json,.csv" style="display: none;">
+
+        <!-- Scripts -->
+        <script src="/src/app.js"></script>
+        <script>
+            // Initialize Lucide icons
+            lucide.createIcons();
+
+            // Re-initialize icons after DOM updates
+            window.refreshIcons = function () {
+                lucide.createIcons();
+            };
+
+            // ========================================
+            // NEW UI FEATURES - Enhanced Interactions
+            // ========================================
+
+            // Collapsible Sidebar
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const mainContainer = document.querySelector('.main-container');
+
+            sidebarToggle?.addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+                localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+                refreshIcons();
+            });
+
+            // Restore sidebar state
+            if (localStorage.getItem('sidebarCollapsed') === 'true') {
+                sidebar?.classList.add('collapsed');
+            }
+
+            // Mobile menu toggle
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            mobileMenuBtn?.addEventListener('click', () => {
+                sidebar?.classList.toggle('active');
+            });
+
+            // Close sidebar when clicking outside on mobile
+            document.addEventListener('click', (e) => {
+                if (window.innerWidth <= 1024 &&
+                    !sidebar?.contains(e.target) &&
+                    !mobileMenuBtn?.contains(e.target)) {
+                    sidebar?.classList.remove('active');
+                }
+            });
+
+            // Floating Action Button
+            const fabContainer = document.querySelector('.fab-container');
+            const fabBtn = document.getElementById('fabBtn');
+            const fabItems = document.querySelectorAll('.fab-item');
+
+            fabBtn?.addEventListener('click', () => {
+                fabContainer?.classList.toggle('active');
+                fabBtn?.classList.toggle('active');
+            });
+
+            // Close FAB menu when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!fabContainer?.contains(e.target)) {
+                    fabContainer?.classList.remove('active');
+                    fabBtn?.classList.remove('active');
+                }
+            });
+
+            // FAB item actions
+            fabItems.forEach(item => {
+                item.addEventListener('click', () => {
+                    const action = item.dataset.action;
+                    if (action && window.app) {
+                        switch (action) {
+                            case 'add-personal':
+                                window.app.showSection('personal_info');
+                                window.app.showRecordForm();
+                                break;
+                            case 'add-family':
+                                window.app.showSection('family_members');
+                                window.app.showRecordForm();
+                                break;
+                            case 'add-property':
+                                window.app.showSection('properties');
+                                window.app.showRecordForm();
+                                break;
+                            case 'add-reminder':
+                                window.app.showSection('reminders');
+                                window.app.showRecordForm();
+                                break;
+                        }
+                    }
+                    fabContainer?.classList.remove('active');
+                    fabBtn?.classList.remove('active');
+                });
+            });
+
+            // Global Search (Cmd+K)
+            const searchModal = document.getElementById('searchModal');
+            const globalSearchBtn = document.getElementById('globalSearchBtn');
+            const globalSearchInput = document.getElementById('globalSearchInput');
+            const searchResults = document.getElementById('searchResults');
+
+            function openSearch() {
+                searchModal?.classList.add('active');
+                setTimeout(() => globalSearchInput?.focus(), 100);
+            }
+
+            function closeSearch() {
+                searchModal?.classList.remove('active');
+                if (globalSearchInput) globalSearchInput.value = '';
+            }
+
+            globalSearchBtn?.addEventListener('click', openSearch);
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                // Cmd/Ctrl + K for search
+                if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                    e.preventDefault();
+                    openSearch();
+                }
+
+                // Cmd/Ctrl + B for sidebar
+                if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
+                    e.preventDefault();
+                    sidebarToggle?.click();
+                }
+
+                // ? for keyboard shortcuts
+                if (e.key === '?' && !e.metaKey && !e.ctrlKey && e.target.tagName !== 'INPUT') {
+                    e.preventDefault();
+                    document.getElementById('shortcutsModal')?.classList.add('active');
+                }
+
+                // ESC to close modals
+                if (e.key === 'Escape') {
+                    closeSearch();
+                    document.getElementById('shortcutsModal')?.classList.remove('active');
+                }
+
+                // n for new record
+                if (e.key === 'n' && !e.metaKey && !e.ctrlKey && e.target.tagName !== 'INPUT') {
+                    e.preventDefault();
+                    window.app?.showRecordForm();
+                }
+
+                // g + letter for navigation
+                if (e.key === 'g' && !e.metaKey && !e.ctrlKey && e.target.tagName !== 'INPUT') {
+                    const navKeys = {
+                        'h': 'dashboard',
+                        'p': 'personal_info',
+                        'f': 'family_members',
+                        'r': 'reminders',
+                        'b': 'banking_details',
+                        's': 'stocks',
+                        'a': 'assets',
+                        'o': 'properties'
+                    };
+
+                    const handler = (navEvent) => {
+                        const section = navKeys[navEvent.key];
+                        if (section && window.app) {
+                            navEvent.preventDefault();
+                            window.app.showSection(section);
+                            document.removeEventListener('keydown', handler);
+                        }
+                    };
+
+                    document.addEventListener('keydown', handler);
+                    setTimeout(() => document.removeEventListener('keydown', handler), 1000);
+                }
+            });
+
+            // Close search when clicking outside
+            searchModal?.addEventListener('click', (e) => {
+                if (e.target === searchModal) closeSearch();
+            });
+
+            // Keyboard Shortcuts Modal
+            const shortcutsModal = document.getElementById('shortcutsModal');
+            const keyboardShortcutsBtn = document.getElementById('keyboardShortcutsBtn');
+            const closeShortcuts = document.getElementById('closeShortcuts');
+
+            keyboardShortcutsBtn?.addEventListener('click', () => {
+                shortcutsModal?.classList.add('active');
+            });
+
+            closeShortcuts?.addEventListener('click', () => {
+                shortcutsModal?.classList.remove('active');
+            });
+
+            shortcutsModal?.addEventListener('click', (e) => {
+                if (e.target === shortcutsModal) shortcutsModal.classList.remove('active');
+            });
+
+            // Breadcrumb update helper
+            window.updateBreadcrumb = function (section, title) {
+                const breadcrumbCurrent = document.querySelector('.breadcrumb-current');
+                if (breadcrumbCurrent && title) {
+                    breadcrumbCurrent.textContent = title;
+                }
+            };
+
+            // User Menu Dropdown
+            const userMenu = document.getElementById('userMenu');
+            const userMenuBtn = document.getElementById('userMenuBtn');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const userName = document.getElementById('userName');
+
+            // Update username from auth
+            if (dashboardAuth?.currentUser?.username) {
+                userName.textContent = dashboardAuth.currentUser.username;
+            }
+
+            userMenuBtn?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                userMenu?.classList.toggle('active');
+            });
+
+            // Close dropdown when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!userMenu?.contains(e.target)) {
+                    userMenu?.classList.remove('active');
+                }
+            });
+
+            // Logout button handler
+            logoutBtn?.addEventListener('click', () => {
+                logout();
+                userMenu?.classList.remove('active');
+            });
+
+            // Add ripple effect to buttons
+            document.querySelectorAll('.btn, .nav-link, .fab-btn, .fab-item, .dropdown-item').forEach(btn => {
+                btn.addEventListener('click', function (e) {
+                    const rect = this.getBoundingClientRect();
+                    const ripple = document.createElement('span');
+                    ripple.style.cssText = `
+                        position: absolute;
+                        background: rgba(255,255,255,0.3);
+                        border-radius: 50%;
+                        transform: scale(0);
+                        animation: ripple 0.6s linear;
+                        pointer-events: none;
+                    `;
+                    const size = Math.max(rect.width, rect.height);
+                    ripple.style.width = ripple.style.height = size + 'px';
+                    ripple.style.left = e.clientX - rect.left - size / 2 + 'px';
+                    ripple.style.top = e.clientY - rect.top - size / 2 + 'px';
+                    this.style.position = 'relative';
+                    this.style.overflow = 'hidden';
+                    this.appendChild(ripple);
+                    setTimeout(() => ripple.remove(), 600);
+                });
+            });
+
+            // Add ripple animation
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes ripple {
+                    to {
+                        transform: scale(4);
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+
+            console.log('Enhanced UI features loaded');
+        </script>
+
+    </div>
+</body>
+
+</html>
