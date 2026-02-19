@@ -39,7 +39,7 @@ const tableConfig = {
         required: ['name']
     },
     policies: {
-        columns: ['family_member_id', 'name', 'insured_person_name', 'service_provider', 'policy_name', 'login_id', 'password', 'policy_number', 'nominees', 'relation_with_nominees', 'nominees_share_percent', 'premium_mode', 'policy_start_date', 'policy_last_payment_date', 'date_of_maturity', 'policy_status', 'maturity_status', 'premium_paying_term', 'premium_amount', 'total_premium_amount', 'death_sum_assured', 'sum_insured', 'bonus_or_additional', 'other_documents'],
+        columns: ['family_member_id', 'name', 'insured_person_name', 'service_provider', 'policy_name', 'insurance_type', 'login_id', 'password', 'policy_number', 'nominees', 'relation_with_nominees', 'nominees_share_percent', 'premium_mode', 'policy_start_date', 'policy_last_payment_date', 'date_of_maturity', 'policy_status', 'maturity_status', 'premium_paying_term', 'premium_amount', 'total_premium_amount', 'death_sum_assured', 'sum_insured', 'bonus_or_additional', 'other_documents'],
         required: ['name']
     },
     loans: {
@@ -136,18 +136,17 @@ router.get('/dashboard/stats', async (req, res) => {
         );
         stats.files = parseInt(fileResult.rows[0].count);
 
-        // Get active reminders count
+        // Get active reminders count (both 'Active' and 'pending' for backward compatibility)
         const reminderResult = await query(
-            `SELECT COUNT(*) FROM reminders WHERE user_id = $1 AND status = 'Active'`,
+            `SELECT COUNT(*) FROM reminders WHERE user_id = $1 AND (status = 'Active' OR status = 'pending')`,
             [req.user.id]
         );
         stats.activeReminders = parseInt(reminderResult.rows[0].count);
 
-        // Get upcoming reminders
+        // Get upcoming reminders (all active/pending reminders ordered by date)
         const upcomingResult = await query(
             `SELECT * FROM reminders 
-             WHERE user_id = $1 AND status = 'Active' 
-             AND reminder_date > CURRENT_TIMESTAMP 
+             WHERE user_id = $1 AND (status = 'Active' OR status = 'pending')
              ORDER BY reminder_date ASC 
              LIMIT 5`,
             [req.user.id]

@@ -9,6 +9,7 @@ const path = require('path');
 const authRoutes = require('./routes/auth');
 const crudRoutes = require('./routes/crud');
 const fileRoutes = require('./routes/files');
+const reminderRoutes = require('./routes/reminders');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -57,10 +58,11 @@ app.get('/health', (req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// API Routes
-app.use('/auth', authRoutes);
+// API routes
+app.use('/api/auth', authRoutes);
 app.use('/api', crudRoutes);
-app.use('/files', fileRoutes);
+app.use('/api/files', fileRoutes);
+app.use('/api/reminders', reminderRoutes);
 
 // Serve frontend for root route (including with query strings like /?)
 app.get('/', (req, res) => {

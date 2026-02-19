@@ -164,27 +164,83 @@ class DataManager {
         if (!container) return;
 
         try {
-            const payload = await this.fetchDashboardStats();
+            // Force refresh to get latest reminders (bypass cache)
+            const payload = await this.fetchDashboardStats({ force: true });
             const items = Array.isArray(payload?.upcomingReminders) ? payload.upcomingReminders : [];
 
-            const upcoming = items
-                .filter(r => r && (r.status === 'Active' || r.status === 'active'))
-                .slice(0, 5);
+            // Separate into overdue and upcoming (accept both 'Active' and 'pending')
+            const now = new Date();
+            const activeItems = items.filter(r => r.status === 'Active' || r.status === 'pending');
+            const overdue = activeItems.filter(r => new Date(r.reminder_date) < now);
+            const upcoming = activeItems.filter(r => new Date(r.reminder_date) >= now);
 
-            if (upcoming.length === 0) {
-                container.innerHTML = '<div class="empty-state">No upcoming reminders</div>';
+            if (items.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">🔔</div>
+                        <h3>No Reminders</h3>
+                        <p>Create a reminder to get started</p>
+                        <button class="btn btn-primary" onclick="app.showSection('reminders'); app.showRecordForm();">
+                            <span>Create Reminder</span>
+                        </button>
+                    </div>
+                `;
                 return;
             }
 
-            container.innerHTML = upcoming.map(r => `
-                <div class="reminder-item">
-                    <div class="reminder-title">${r.title || 'Reminder'}</div>
-                    <div class="reminder-meta">${r.reminder_date ? new Date(r.reminder_date).toLocaleString() : ''}</div>
-                </div>
-            `).join('');
+            let html = '';
+
+            // Show overdue section if any
+            if (overdue.length > 0) {
+                html += `
+                    <div class="reminder-section">
+                        <div class="reminder-section-header overdue">
+                            <i data-lucide="alert-circle" width="14" height="14"></i>
+                            <span>Overdue (${overdue.length})</span>
+                        </div>
+                        ${overdue.map(r => this.createReminderItem(r, true)).join('')}
+                    </div>
+                `;
+            }
+
+            // Show upcoming section if any
+            if (upcoming.length > 0) {
+                html += `
+                    <div class="reminder-section">
+                        <div class="reminder-section-header">
+                            <i data-lucide="clock" width="14" height="14"></i>
+                            <span>Upcoming (${upcoming.length})</span>
+                        </div>
+                        ${upcoming.map(r => this.createReminderItem(r, false)).join('')}
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
         } catch (e) {
             container.innerHTML = '<div class="empty-state">Unable to load reminders</div>';
         }
+    }
+
+    createReminderItem(reminder, isOverdue) {
+        const date = new Date(reminder.reminder_date);
+        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const dateStr = date.toLocaleDateString();
+        const iconName = isOverdue ? 'alert-circle' : 'clock';
+        const iconColor = isOverdue ? '#ef4444' : '#f59e0b';
+
+        return `
+            <div class="reminder-item ${isOverdue ? 'overdue' : ''}" onclick="app.showSection('reminders'); app.viewRecord(${reminder.id});">
+                <div class="reminder-item-icon" style="color: ${iconColor};">
+                    <i data-lucide="${iconName}" width="20" height="20"></i>
+                </div>
+                <div class="reminder-item-content">
+                    <div class="reminder-item-title">${reminder.title || 'Reminder'}</div>
+                    <div class="reminder-item-meta">${dateStr} at ${timeStr}</div>
+                    ${reminder.description ? `<div class="reminder-item-desc">${reminder.description}</div>` : ''}
+                </div>
+            </div>
+        `;
     }
 
     showLoadingScreen() {
@@ -387,6 +443,7 @@ class DataManager {
                     { name: 'insured_person_name', label: 'Insured Person', type: 'text' },
                     { name: 'service_provider', label: 'Service Provider', type: 'text' },
                     { name: 'policy_name', label: 'Policy Product Name', type: 'text' },
+                    { name: 'insurance_type', label: 'Insurance Type', type: 'select', options: ['Life', 'Health', 'Medical', 'Car', 'Bike', 'Home', 'Travel', 'Personal Accident', 'Critical Illness', 'Child Plan', 'Retirement', 'ULIP', 'Other'] },
                     { name: 'login_id', label: 'Login ID', type: 'text' },
                     { name: 'password', label: 'Password', type: 'password' },
                     { name: 'policy_number', label: 'Policy Number', type: 'text' },
@@ -494,7 +551,8 @@ class DataManager {
                     { name: 'related_record_id', label: 'Related Record ID', type: 'number' },
                     { name: 'notification_sent', label: 'Notification Sent', type: 'select', options: ['No', 'Yes'] },
                     { name: 'repeat_type', label: 'Repeat Type', type: 'select', options: ['None', 'Daily', 'Weekly', 'Monthly', 'Yearly'] },
-                    { name: 'repeat_interval', label: 'Repeat Interval', type: 'number' }
+                    { name: 'repeat_interval', label: 'Repeat Interval', type: 'number' },
+                    { name: 'files', label: 'Attachments', type: 'file', multiple: true, accept: 'image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt' }
                 ]
             },
 
@@ -2921,6 +2979,17 @@ class DataManager {
             case 'datetime-local':
                 return `<input type="datetime-local" ${commonAttrs} value="${value}">`;
 
+            case 'file':
+                const accept = field.accept || '*';
+                const multiple = field.multiple ? 'multiple' : '';
+                return `
+                    <div class="file-upload-wrapper">
+                        <input type="file" ${commonAttrs} accept="${accept}" ${multiple} 
+                               onchange="window.app.handleFileSelect(this, '${field.name}')">
+                        <div class="file-list" id="file-list-${field.name}"></div>
+                    </div>
+                `;
+
             default:
                 return `<input type="${field.type}" ${commonAttrs} value="${value}">`;
         }
@@ -2960,6 +3029,14 @@ class DataManager {
 
         // Generate form fields with record data (now async)
         await this.generateFormFields(table.fields, recordId);
+
+        // Load existing files if this is a reminder
+        if (this.currentTable === 'reminders') {
+            const fileField = table.fields.find(f => f.type === 'file');
+            if (fileField) {
+                await this.loadReminderFiles(recordId, fileField.name);
+            }
+        }
 
         // Show the modal
         this.showModal();
@@ -3013,6 +3090,7 @@ class DataManager {
                 
                 <div class="record-view-sections">
                     ${this.renderViewSections(record, table.fields)}
+                    ${this.currentTable === 'reminders' && record.files && record.files.length > 0 ? this.renderReminderFiles(record.files) : ''}
                 </div>
                 
                 <div class="record-view-meta">
@@ -3142,13 +3220,39 @@ class DataManager {
         `;
     }
 
+    // Render attached files for reminders
+    renderReminderFiles(files) {
+        if (!files || files.length === 0) return '';
+
+        return `
+            <div class="record-view-section reminder-files-section">
+                <h3><span class="section-icon">📎</span> Attached Files</h3>
+                <div class="reminder-files-list">
+                    ${files.map(file => `
+                        <div class="reminder-file-item">
+                            <span class="file-icon">📄</span>
+                            <span class="file-name">${file.original_name}</span>
+                            <span class="file-size">(${this.formatFileSize(file.file_size)})</span>
+                            <a href="${this.API_BASE_URL}/api/reminders/files/${file.id}/download" 
+                               class="download-btn" 
+                               target="_blank">Download</a>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+    }
+
     // Edit record
     editRecord(recordId) {
+        console.log('✏️ Editing record:', recordId);
         this.showRecordForm(recordId);
     }
 
     async saveRecord() {
-        console.log('💾 Saving record to PostgreSQL...');
+        console.log('💾 saveRecord() called - EDIT MODE:', this.editingRecord ? 'YES' : 'NO');
+        console.log('📝 Editing Record ID:', this.editingRecord);
+        console.log('📊 isEditMode:', this.isEditMode);
         console.log('🔑 Auth token:', dashboardAuth?.token ? 'Available' : 'Not available');
         console.log('🌐 API URL:', this.API_BASE_URL);
         console.log('📋 Current table:', this.currentTable);
@@ -3194,19 +3298,29 @@ class DataManager {
 
             if (this.editingRecord) {
                 // Update existing record
+                console.log('🔄 Making PUT request to:', `${endpoint}/${this.editingRecord}`);
+                console.log('📦 Request data:', recordData);
                 result = await this.apiRequest(`${endpoint}/${this.editingRecord}`, 'PUT', recordData);
+                console.log('✅ Update successful:', result);
                 this.showToast('Record updated successfully', 'success');
             } else {
                 // Create new record
+                console.log('🔄 Making POST request to:', endpoint);
                 result = await this.apiRequest(endpoint, 'POST', recordData);
+                console.log('✅ Create successful:', result);
                 this.showToast('Record added successfully', 'success');
             }
 
             const savedRecordId = result.data?.id || this.editingRecord;
 
-            // Save uploaded files if any
+            // Save uploaded files if any (for regular tables)
             if (this.uploadedFiles.length > 0 && savedRecordId) {
                 await this.saveUploadedFiles(savedRecordId);
+            }
+
+            // Upload reminder files if this is a reminder
+            if (this.currentTable === 'reminders' && savedRecordId) {
+                await this.uploadReminderFiles(savedRecordId);
             }
 
             // Log activity for recent activity feed
@@ -3219,6 +3333,11 @@ class DataManager {
             this.loadTable(this.currentTable);
             this.updateDashboardStats();
             this.updateWelcomeStats();
+
+            // Refresh upcoming reminders if this is a reminder
+            if (this.currentTable === 'reminders') {
+                this.loadUpcomingReminders();
+            }
 
             // If we're on family tree and added/edited a family member, refresh the tree
             if (this.currentTable === 'family_members') {
@@ -3361,6 +3480,8 @@ class DataManager {
         this.editingRecord = null;
         this.isEditMode = false;
         this.uploadedFiles = [];
+        this.reminderFiles = []; // Reset reminder files
+        this.existingReminderFiles = {}; // Reset existing reminder files
 
         // Reset form
         const form = document.getElementById('recordForm');
@@ -3417,6 +3538,175 @@ class DataManager {
             confirmOverlay.style.display = 'none';
         }
         this.confirmCallback = null;
+    }
+
+    // Handle file selection for reminders
+    handleFileSelect(input, fieldName) {
+        const files = Array.from(input.files);
+        if (files.length === 0) return;
+
+        // Store files for upload
+        if (!this.reminderFiles) this.reminderFiles = [];
+
+        files.forEach(file => {
+            this.reminderFiles.push({
+                file: file,
+                fieldName: fieldName,
+                id: 'temp-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9)
+            });
+        });
+
+        // Update UI to show selected files
+        this.updateFileListUI(fieldName);
+    }
+
+    // Update file list UI
+    updateFileListUI(fieldName) {
+        const fileListContainer = document.getElementById(`file-list-${fieldName}`);
+        if (!fileListContainer || !this.reminderFiles) return;
+
+        const fieldFiles = this.reminderFiles.filter(f => f.fieldName === fieldName);
+
+        if (fieldFiles.length === 0) {
+            fileListContainer.innerHTML = '';
+            return;
+        }
+
+        fileListContainer.innerHTML = fieldFiles.map(fileObj => `
+            <div class="selected-file" data-file-id="${fileObj.id}">
+                <span class="file-name">${fileObj.file.name}</span>
+                <span class="file-size">(${this.formatFileSize(fileObj.file.size)})</span>
+                <button type="button" class="remove-file-btn" onclick="window.app.removeReminderFile('${fileObj.id}', '${fieldName}')">×</button>
+            </div>
+        `).join('');
+    }
+
+    // Remove a selected file
+    removeReminderFile(fileId, fieldName) {
+        if (!this.reminderFiles) return;
+
+        this.reminderFiles = this.reminderFiles.filter(f => f.id !== fileId);
+        this.updateFileListUI(fieldName);
+    }
+
+    // Format file size
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Upload files for a reminder
+    async uploadReminderFiles(reminderId) {
+        if (!this.reminderFiles || this.reminderFiles.length === 0) return;
+
+        const uploadedFiles = [];
+
+        for (const fileObj of this.reminderFiles) {
+            try {
+                const formData = new FormData();
+                formData.append('file', fileObj.file);
+
+                const response = await fetch(`${this.API_BASE_URL}/api/reminders/${reminderId}/files`, {
+                    method: 'POST',
+                    headers: {
+                        ...(window.dashboardAuth?.token ? { 'Authorization': `Bearer ${window.dashboardAuth.token}` } : {})
+                    },
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    uploadedFiles.push(result.file);
+                } else {
+                    console.error('Failed to upload file:', fileObj.file.name);
+                }
+            } catch (error) {
+                console.error('Error uploading file:', fileObj.file.name, error);
+            }
+        }
+
+        // Clear uploaded files
+        this.reminderFiles = [];
+
+        return uploadedFiles;
+    }
+
+    // Load existing files for a reminder
+    async loadReminderFiles(reminderId, fieldName) {
+        try {
+            const response = await fetch(`${this.API_BASE_URL}/api/reminders/${reminderId}/files`, {
+                headers: {
+                    ...(window.dashboardAuth?.token ? { 'Authorization': `Bearer ${window.dashboardAuth.token}` } : {})
+                }
+            });
+
+            if (!response.ok) return;
+
+            const files = await response.json();
+
+            // Store as existing files
+            if (!this.existingReminderFiles) this.existingReminderFiles = {};
+            this.existingReminderFiles[reminderId] = files;
+
+            // Update UI
+            this.updateExistingFilesUI(files, fieldName, reminderId);
+        } catch (error) {
+            console.error('Error loading reminder files:', error);
+        }
+    }
+
+    // Update UI for existing files
+    updateExistingFilesUI(files, fieldName, reminderId) {
+        const fileListContainer = document.getElementById(`file-list-${fieldName}`);
+        if (!fileListContainer) return;
+
+        const existingFilesHTML = files.map(file => `
+            <div class="existing-file" data-file-id="${file.id}">
+                <span class="file-icon">📎</span>
+                <span class="file-name">${file.original_name}</span>
+                <span class="file-size">(${this.formatFileSize(file.file_size)})</span>
+                <a href="${this.API_BASE_URL}/api/reminders/files/${file.id}/download" 
+                   class="download-file-btn" 
+                   target="_blank"
+                   title="Download">⬇️</a>
+                <button type="button" 
+                        class="remove-file-btn" 
+                        onclick="window.app.deleteReminderFile(${file.id}, '${fieldName}', ${reminderId})"
+                        title="Delete">×</button>
+            </div>
+        `).join('');
+
+        // Append to any already selected new files
+        const existingHTML = fileListContainer.innerHTML || '';
+        fileListContainer.innerHTML = existingHTML + existingFilesHTML;
+    }
+
+    // Delete a reminder file
+    async deleteReminderFile(fileId, fieldName, reminderId) {
+        try {
+            const response = await fetch(`${this.API_BASE_URL}/api/reminders/files/${fileId}`, {
+                method: 'DELETE',
+                headers: {
+                    ...(window.dashboardAuth?.token ? { 'Authorization': `Bearer ${window.dashboardAuth.token}` } : {})
+                }
+            });
+
+            if (response.ok) {
+                // Remove from UI
+                const fileElement = document.querySelector(`[data-file-id="${fileId}"]`);
+                if (fileElement) fileElement.remove();
+
+                this.showToast('File deleted successfully', 'success');
+            } else {
+                this.showToast('Failed to delete file', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting file:', error);
+            this.showToast('Failed to delete file', 'error');
+        }
     }
 
     filterTable(searchTerm) {

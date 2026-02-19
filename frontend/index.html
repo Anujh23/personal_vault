@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personal Dashboard - Online</title>
     <link rel="stylesheet" href="/src/style.css">
+    <link rel="stylesheet" href="/css/reminders.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
@@ -211,9 +212,23 @@
                     </div>
 
                     <div class="header-actions">
-                        <button id="globalSearchBtn" class="header-btn" title="Search">
-                            <i data-lucide="search"></i>
-                        </button>
+                        <!-- Reminder Bell Icon in Header -->
+                        <div id="reminder-indicators" class="reminder-indicators">
+                            <div class="reminder-badge" title="Reminders">
+                                <i data-lucide="bell"></i>
+                                <span id="reminder-count" class="badge" style="display: none;">0</span>
+                            </div>
+                            <div class="reminder-list-container" id="reminder-list-container">
+                                <div class="reminder-list-header">
+                                    <h4>Reminders</h4>
+                                    <span id="reminder-count-header">0 total</span>
+                                </div>
+                                <div class="reminder-list" id="reminder-list">
+                                    <div class="reminder-empty">No reminders</div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="user-menu" id="userMenu">
                             <button id="userMenuBtn" class="user-menu-btn" title="User Menu">
                                 <i data-lucide="user-circle"></i>
@@ -545,26 +560,6 @@
             </div>
         </div>
 
-        <!-- Global Search Modal -->
-        <div id="searchModal" class="search-modal">
-            <div class="search-container">
-                <div class="search-input-wrapper">
-                    <i data-lucide="search" class="search-icon"></i>
-                    <input type="text" id="globalSearchInput" class="search-input"
-                        placeholder="Search records, files, reminders..." autocomplete="off">
-                    <kbd class="search-kbd">ESC</kbd>
-                </div>
-                <div class="search-results" id="searchResults"></div>
-                <div class="search-footer">
-                    <div class="search-hints">
-                        <span><kbd>↑</kbd> <kbd>↓</kbd> Navigate</span>
-                        <span><kbd>↵</kbd> Select</span>
-                        <span><kbd>esc</kbd> Close</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Keyboard Shortcuts Modal -->
         <div id="shortcutsModal" class="shortcuts-modal">
             <div class="shortcuts-content">
@@ -580,10 +575,6 @@
                         <div class="shortcut-item">
                             <span class="shortcut-keys"><kbd>?</kbd></span>
                             <span class="shortcut-desc">Show keyboard shortcuts</span>
-                        </div>
-                        <div class="shortcut-item">
-                            <span class="shortcut-keys"><kbd>⌘</kbd> <kbd>K</kbd></span>
-                            <span class="shortcut-desc">Open global search</span>
                         </div>
                         <div class="shortcut-item">
                             <span class="shortcut-keys"><kbd>⌘</kbd> <kbd>B</kbd></span>
@@ -734,7 +725,16 @@
         <input type="file" id="importFileInput" accept=".json,.csv" style="display: none;">
 
         <!-- Scripts -->
-        <script src="/src/app.js"></script>
+        <script src="/src/app.js" type="module"></script>
+
+        <!-- Reminder Components -->
+        <script src="/js/components/reminderIndicators.js"></script>
+
+        <!-- Initialize Lucide Icons -->
+        <script>
+            lucide.createIcons();
+        </script>
+
         <script>
             // Initialize Lucide icons
             lucide.createIcons();
@@ -826,32 +826,8 @@
                 });
             });
 
-            // Global Search (Cmd+K)
-            const searchModal = document.getElementById('searchModal');
-            const globalSearchBtn = document.getElementById('globalSearchBtn');
-            const globalSearchInput = document.getElementById('globalSearchInput');
-            const searchResults = document.getElementById('searchResults');
-
-            function openSearch() {
-                searchModal?.classList.add('active');
-                setTimeout(() => globalSearchInput?.focus(), 100);
-            }
-
-            function closeSearch() {
-                searchModal?.classList.remove('active');
-                if (globalSearchInput) globalSearchInput.value = '';
-            }
-
-            globalSearchBtn?.addEventListener('click', openSearch);
-
             // Keyboard shortcuts
             document.addEventListener('keydown', (e) => {
-                // Cmd/Ctrl + K for search
-                if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-                    e.preventDefault();
-                    openSearch();
-                }
-
                 // Cmd/Ctrl + B for sidebar
                 if ((e.metaKey || e.ctrlKey) && e.key === 'b') {
                     e.preventDefault();
@@ -866,7 +842,6 @@
 
                 // ESC to close modals
                 if (e.key === 'Escape') {
-                    closeSearch();
                     document.getElementById('shortcutsModal')?.classList.remove('active');
                 }
 
@@ -903,11 +878,6 @@
                 }
             });
 
-            // Close search when clicking outside
-            searchModal?.addEventListener('click', (e) => {
-                if (e.target === searchModal) closeSearch();
-            });
-
             // Keyboard Shortcuts Modal
             const shortcutsModal = document.getElementById('shortcutsModal');
             const keyboardShortcutsBtn = document.getElementById('keyboardShortcutsBtn');
@@ -940,8 +910,8 @@
             const userName = document.getElementById('userName');
 
             // Update username from auth
-            if (dashboardAuth?.currentUser?.username) {
-                userName.textContent = dashboardAuth.currentUser.username;
+            if (window.dashboardAuth?.currentUser?.username) {
+                userName.textContent = window.dashboardAuth.currentUser.username;
             }
 
             userMenuBtn?.addEventListener('click', (e) => {

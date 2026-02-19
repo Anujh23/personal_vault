@@ -29,6 +29,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onImportData: (callback) =>
     ipcRenderer.on('import-data', callback),
 
+  // ----- Reminder notifications -----
+  onRemindersUpdated: (callback) =>
+    ipcRenderer.on('reminders-updated', callback),
+
   // Remove listeners
   removeAllListeners: (channel) =>
     ipcRenderer.removeAllListeners(channel),

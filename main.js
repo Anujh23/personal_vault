@@ -1,6 +1,7 @@
-const { app, BrowserWindow, Menu, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, dialog, Notification } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const ReminderService = require('./src/services/reminderService');
 
 // Enable live reload for development
 if (process.env.NODE_ENV === 'development') {
@@ -11,6 +12,8 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 let mainWindow;
+
+let reminderService = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -41,6 +44,14 @@ function createWindow() {
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
   }
+
+  // Initialize reminder service
+  reminderService = new ReminderService(mainWindow);
+
+  // Start reminder service when window is ready
+  mainWindow.webContents.on('did-finish-load', () => {
+    reminderService.start();
+  });
 
   createMenu();
 }
@@ -110,13 +121,13 @@ function createMenu() {
       submenu: [
         { label: 'Personal Info', click: () => mainWindow.webContents.send('menu-show-section', 'personal_info') },
         { label: 'Family Members', click: () => mainWindow.webContents.send('menu-show-section', 'family_members') },
-        { label: 'Properties',     click: () => mainWindow.webContents.send('menu-show-section', 'properties') },
-        { label: 'Assets',         click: () => mainWindow.webContents.send('menu-show-section', 'assets') },
-        { label: 'Banking',        click: () => mainWindow.webContents.send('menu-show-section', 'banking_details') },
-        { label: 'Investments',    click: () => mainWindow.webContents.send('menu-show-section', 'stocks') }
+        { label: 'Properties', click: () => mainWindow.webContents.send('menu-show-section', 'properties') },
+        { label: 'Assets', click: () => mainWindow.webContents.send('menu-show-section', 'assets') },
+        { label: 'Banking', click: () => mainWindow.webContents.send('menu-show-section', 'banking_details') },
+        { label: 'Investments', click: () => mainWindow.webContents.send('menu-show-section', 'stocks') }
       ]
     },
-    { label: 'Window', submenu: [ { role: 'minimize' }, { role: 'close' } ] },
+    { label: 'Window', submenu: [{ role: 'minimize' }, { role: 'close' }] },
     {
       label: 'Help',
       submenu: [
@@ -229,7 +240,15 @@ ipcMain.handle('read-image', async (event, filePath) => {
 
 app.whenReady().then(createWindow);
 
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    if (reminderService) {
+      reminderService.stop();
+      reminderService = null;
+    }
+    app.quit();
+  }
+});
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow();

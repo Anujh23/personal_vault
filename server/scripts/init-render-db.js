@@ -300,10 +300,12 @@ const createTables = async () => {
                 reminder_date TIMESTAMP NOT NULL,
                 reminder_type VARCHAR(50),
                 priority VARCHAR(20) DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high')),
-                status VARCHAR(20) DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'cancelled')),
+                status VARCHAR(20) DEFAULT 'Active',
                 related_table VARCHAR(50),
                 related_record_id INTEGER,
                 notification_sent BOOLEAN DEFAULT false,
+                snooze_count INTEGER DEFAULT 0,
+                snooze_until TIMESTAMP,
                 repeat_type VARCHAR(20),
                 repeat_interval INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -311,6 +313,37 @@ const createTables = async () => {
             )
         `);
         console.log('✅ Reminders table created');
+
+        // Update status constraint to allow both old and new values
+        try {
+            await client.query(`
+                ALTER TABLE reminders 
+                DROP CONSTRAINT IF EXISTS reminders_status_check
+            `);
+            await client.query(`
+                ALTER TABLE reminders 
+                ADD CONSTRAINT reminders_status_check 
+                CHECK (status IN ('Active', 'Completed', 'Cancelled', 'pending', 'completed', 'cancelled'))
+            `);
+            console.log('✅ Updated reminders status constraint');
+        } catch (e) {
+            console.log('ℹ️ Status constraint update skipped (may already be correct)');
+        }
+
+        // Reminder Files table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS reminder_files (
+                id SERIAL PRIMARY KEY,
+                reminder_id INTEGER REFERENCES reminders(id) ON DELETE CASCADE,
+                filename VARCHAR(255) NOT NULL,
+                original_name VARCHAR(255) NOT NULL,
+                file_size INTEGER NOT NULL,
+                mime_type VARCHAR(100) NOT NULL,
+                file_path TEXT NOT NULL,
+                uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ Reminder Files table created');
 
         // Files table
         await client.query(`
