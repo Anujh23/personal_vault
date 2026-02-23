@@ -4178,7 +4178,7 @@ async function handleLogin(e) {
     messageEl.textContent = '';
 
     try {
-        const apiBaseUrl = window.API_BASE_URL || 'http://localhost:3000';
+        const apiBaseUrl = typeof window.API_BASE_URL !== 'undefined' ? window.API_BASE_URL : 'http://localhost:3000';
         const response = await fetch(`${apiBaseUrl}/auth/login`, {
             method: 'POST',
             headers: {
