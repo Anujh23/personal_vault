@@ -1,11 +1,4 @@
 services:
-  # PostgreSQL Database
-  - name: dashboard-db
-    type: database
-    plan: starter
-    databaseName: dashboard
-    user: dashboard_user
-
   # Node.js API Service
   - name: dashboard-api
     type: web
@@ -18,9 +11,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: dashboard-db
-          property: connectionString
+        value: ${DATABASE_URL}
       - key: JWT_SECRET
         generateValue: true
     healthCheckPath: /health
@@ -35,12 +26,10 @@ services:
     rootDir: python_service
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: dashboard-db
-          property: connectionString
+        value: ${DATABASE_URL}
     healthCheckPath: /health
 
-  # Static Frontend
+  # Frontend
   - name: dashboard-ui
     type: web
     runtime: node
