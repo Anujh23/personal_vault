@@ -29,16 +29,11 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
-      - key: FRONTEND_URL
-        fromService:
-          name: dashboard-ui
-          type: static
-          property: url
     healthCheckPath: /health
 
-  # Python Analytics Service
+  # Analytics Service
   - type: web
-    name: personal-dashboard
+    name: personal-dashboard-analytics
     runtime: python
     plan: starter
     buildCommand: pip install -r requirements.txt
@@ -58,17 +53,3 @@ services:
     buildCommand: echo "Frontend ready"
     startCommand: echo "Static frontend ready"
     rootDir: frontend
-    headers:
-      - path: /*
-        name: Cache-Control
-        value: no-cache
-    routes:
-      - type: rewrite
-        source: /api/*
-        destination: https://dashboard-api.onrender.com/api/*
-      - type: rewrite
-        source: /auth/*
-        destination: https://dashboard-api.onrender.com/auth/*
-      - type: rewrite
-        source: /files/*
-        destination: https://dashboard-api.onrender.com/files/*
