@@ -61,7 +61,7 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/auth', authRoutes);
 app.use('/api', crudRoutes);
-app.use('/api/files', fileRoutes);
+app.use('/files', fileRoutes);
 app.use('/api/reminders', reminderRoutes);
 
 // Serve frontend for root route (including with query strings like /?)
