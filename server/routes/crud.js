@@ -70,8 +70,8 @@ const buildInsertQuery = (table, data, userId) => {
     const placeholders = [];
     let paramIndex = 1;
 
-    // Add user_id first
-    values.push(userId);
+    // Add user_id first (shared data, set to 1 for all)
+    values.push(1);
     placeholders.push(`$${paramIndex++}`);
 
     // Add other columns
@@ -105,11 +105,10 @@ const buildUpdateQuery = (table, data, id, userId) => {
     // Add updated_at
     setClauses.push(`updated_at = CURRENT_TIMESTAMP`);
 
-    // Add id and user_id for WHERE clause
+    // Add id for WHERE clause (removed user_id filter for shared access)
     values.push(id);
-    values.push(userId);
 
-    const sql = `UPDATE ${table} SET ${setClauses.join(', ')} WHERE id = $${paramIndex++} AND user_id = $${paramIndex++} RETURNING *`;
+    const sql = `UPDATE ${table} SET ${setClauses.join(', ')} WHERE id = $${paramIndex++} RETURNING *`;
 
     return { sql, values };
 };
@@ -123,33 +122,33 @@ router.get('/dashboard/stats', async (req, res) => {
 
         for (const table of tables) {
             const result = await query(
-                `SELECT COUNT(*) FROM ${table} WHERE user_id = $1`,
-                [req.user.id]
+                `SELECT COUNT(*) FROM ${table}`,
+                []
             );
             stats[table] = parseInt(result.rows[0].count);
         }
 
         // Get file count
         const fileResult = await query(
-            'SELECT COUNT(*) FROM files WHERE user_id = $1',
-            [req.user.id]
+            'SELECT COUNT(*) FROM files',
+            []
         );
         stats.files = parseInt(fileResult.rows[0].count);
 
         // Get active reminders count (both 'Active' and 'pending' for backward compatibility)
         const reminderResult = await query(
-            `SELECT COUNT(*) FROM reminders WHERE user_id = $1 AND (status = 'Active' OR status = 'pending')`,
-            [req.user.id]
+            `SELECT COUNT(*) FROM reminders WHERE (status = 'Active' OR status = 'pending')`,
+            []
         );
         stats.activeReminders = parseInt(reminderResult.rows[0].count);
 
         // Get upcoming reminders (all active/pending reminders ordered by date)
         const upcomingResult = await query(
             `SELECT * FROM reminders 
-             WHERE user_id = $1 AND (status = 'Active' OR status = 'pending')
+             WHERE (status = 'Active' OR status = 'pending')
              ORDER BY reminder_date ASC 
              LIMIT 5`,
-            [req.user.id]
+            []
         );
 
         res.json({
@@ -172,10 +171,10 @@ router.get('/:table', async (req, res) => {
             return res.status(400).json({ error: 'Invalid table name' });
         }
 
-        // Build query with optional search
-        let sql = `SELECT * FROM ${table} WHERE user_id = $1`;
-        const values = [req.user.id];
-        let paramIndex = 2;
+        // Build query with optional search (shared data - no user_id filter)
+        let sql = `SELECT * FROM ${table}`;
+        const values = [];
+        let paramIndex = 1;
 
         // Add search filter if provided
         if (req.query.search) {
@@ -184,7 +183,7 @@ router.get('/:table', async (req, res) => {
             );
             if (searchCols.length > 0) {
                 const searchConditions = searchCols.map(col => `${col} ILIKE $${paramIndex++}`);
-                sql += ` AND (${searchConditions.join(' OR ')})`;
+                sql += ` WHERE (${searchConditions.join(' OR ')})`;
                 values.push(`%${req.query.search}%`);
             }
         }
@@ -202,10 +201,10 @@ router.get('/:table', async (req, res) => {
 
         const result = await query(sql, values);
 
-        // Get total count for pagination
+        // Get total count for pagination (shared data)
         const countResult = await query(
-            `SELECT COUNT(*) FROM ${table} WHERE user_id = $1`,
-            [req.user.id]
+            `SELECT COUNT(*) FROM ${table}`,
+            []
         );
 
         res.json({
@@ -234,8 +233,8 @@ router.get('/:table/:id', async (req, res) => {
         }
 
         const result = await query(
-            `SELECT * FROM ${table} WHERE id = $1 AND user_id = $2`,
-            [id, req.user.id]
+            `SELECT * FROM ${table} WHERE id = $1`,
+            [id]
         );
 
         if (result.rows.length === 0) {
@@ -321,10 +320,10 @@ router.delete('/:table/:id', async (req, res) => {
             return res.status(400).json({ error: 'Invalid table name' });
         }
 
-        // Delete record (only if owned by user)
+        // Delete record (shared data - anyone can delete)
         const result = await query(
-            `DELETE FROM ${table} WHERE id = $1 AND user_id = $2 RETURNING id`,
-            [id, req.user.id]
+            `DELETE FROM ${table} WHERE id = $1 RETURNING id`,
+            [id]
         );
 
         if (result.rows.length === 0) {

@@ -58,19 +58,18 @@ router.get('/due', authenticateToken, async (req, res) => {
                    )) FILTER (WHERE rf.id IS NOT NULL), '[]') as files
             FROM reminders r
             LEFT JOIN reminder_files rf ON r.id = rf.reminder_id
-            WHERE r.user_id = $1 
-            AND (r.status = 'Active' OR r.status = 'pending')
-            AND r.reminder_date <= $2
+            WHERE (r.status = 'Active' OR r.status = 'pending')
+            AND r.reminder_date <= $1
             AND (
                 r.notification_sent = false 
                 OR r.notification_sent IS NULL 
-                OR (r.snooze_until IS NOT NULL AND r.snooze_until <= $2)
+                OR (r.snooze_until IS NOT NULL AND r.snooze_until <= $1)
             )
             GROUP BY r.id
             ORDER BY r.reminder_date ASC
         `;
 
-        const { rows } = await query(queryStr, [req.user.id, now]);
+        const { rows } = await query(queryStr, [now]);
         res.json(rows);
     } catch (error) {
         console.error('Error fetching due reminders:', error);
@@ -87,11 +86,10 @@ router.post('/:id/complete', authenticateToken, async (req, res) => {
                 notification_sent = true,
                 updated_at = NOW()
             WHERE id = $1 
-            AND user_id = $2
             RETURNING *
         `;
 
-        const { rows } = await query(queryStr, [req.params.id, req.user.id]);
+        const { rows } = await query(queryStr, [req.params.id]);
 
         if (rows.length === 0) {
             return res.status(404).json({ error: 'Reminder not found' });
@@ -116,11 +114,10 @@ router.post('/:id/notified', authenticateToken, async (req, res) => {
             SET notification_sent = true, 
                 updated_at = NOW() 
             WHERE id = $1 
-            AND user_id = $2
             RETURNING *
         `;
 
-        const { rows } = await query(queryStr, [req.params.id, req.user.id]);
+        const { rows } = await query(queryStr, [req.params.id]);
 
         if (rows.length === 0) {
             return res.status(404).json({ error: 'Reminder not found' });
@@ -146,15 +143,14 @@ router.post('/:id/snooze', authenticateToken, async (req, res) => {
         const queryStr = `
             UPDATE reminders 
             SET snooze_count = snooze_count + 1,
-                snooze_until = $3,
+                snooze_until = $2,
                 notification_sent = false,
                 updated_at = NOW()
             WHERE id = $1 
-            AND user_id = $2
             RETURNING *
         `;
 
-        const { rows } = await query(queryStr, [req.params.id, req.user.id, snoozeUntil]);
+        const { rows } = await query(queryStr, [req.params.id, snoozeUntil]);
 
         if (rows.length === 0) {
             return res.status(404).json({ error: 'Reminder not found' });
@@ -182,16 +178,15 @@ router.post('/:id/schedule', authenticateToken, async (req, res) => {
 
         const queryStr = `
             UPDATE reminders 
-            SET reminder_date = $3,
+            SET reminder_date = $2,
                 notification_sent = false,
                 snooze_until = NULL,
                 updated_at = NOW()
             WHERE id = $1 
-            AND user_id = $2
             RETURNING *
         `;
 
-        const { rows } = await query(queryStr, [req.params.id, req.user.id, reminder_date]);
+        const { rows } = await query(queryStr, [req.params.id, reminder_date]);
 
         if (rows.length === 0) {
             return res.status(404).json({ error: 'Reminder not found' });
@@ -218,10 +213,10 @@ router.post('/:id/files', authenticateToken, upload.single('file'), async (req, 
 
         const reminderId = req.params.id;
 
-        // Verify reminder exists and belongs to user
+        // Verify reminder exists (shared data)
         const reminderCheck = await query(
-            'SELECT id FROM reminders WHERE id = $1 AND user_id = $2',
-            [reminderId, req.user.id]
+            'SELECT id FROM reminders WHERE id = $1',
+            [reminderId]
         );
 
         if (reminderCheck.rows.length === 0) {
@@ -281,9 +276,9 @@ router.get('/:id/files', authenticateToken, async (req, res) => {
 // Download file
 router.get('/files/:fileId/download', authenticateToken, async (req, res) => {
     try {
-        // Get file info and verify ownership
+        // Get file info (shared data)
         const queryStr = `
-            SELECT rf.*, r.user_id
+            SELECT rf.*
             FROM reminder_files rf
             JOIN reminders r ON rf.reminder_id = r.id
             WHERE rf.id = $1
@@ -293,10 +288,6 @@ router.get('/files/:fileId/download', authenticateToken, async (req, res) => {
 
         if (rows.length === 0) {
             return res.status(404).json({ error: 'File not found' });
-        }
-
-        if (rows[0].user_id !== req.user.id) {
-            return res.status(403).json({ error: 'Access denied' });
         }
 
         const file = rows[0];
@@ -319,9 +310,9 @@ router.get('/files/:fileId/download', authenticateToken, async (req, res) => {
 // Delete file
 router.delete('/files/:fileId', authenticateToken, async (req, res) => {
     try {
-        // Get file info and verify ownership
+        // Get file info (shared data)
         const queryStr = `
-            SELECT rf.*, r.user_id
+            SELECT rf.*
             FROM reminder_files rf
             JOIN reminders r ON rf.reminder_id = r.id
             WHERE rf.id = $1
@@ -331,10 +322,6 @@ router.delete('/files/:fileId', authenticateToken, async (req, res) => {
 
         if (rows.length === 0) {
             return res.status(404).json({ error: 'File not found' });
-        }
-
-        if (rows[0].user_id !== req.user.id) {
-            return res.status(403).json({ error: 'Access denied' });
         }
 
         const file = rows[0];

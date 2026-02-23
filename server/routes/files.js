@@ -45,9 +45,8 @@ router.get('/', async (req, res) => {
         const result = await query(
             `SELECT id, file_name, file_type, file_size, uploaded_at, record_type, record_id
             FROM files 
-            WHERE user_id = $1
             ORDER BY uploaded_at DESC`,
-            [req.user.id]
+            []
         );
 
         res.json({
@@ -79,23 +78,23 @@ router.post('/upload', upload.single('file'), async (req, res) => {
             return res.status(400).json({ error: 'Invalid record type' });
         }
 
-        // Verify record exists and belongs to user
+        // Verify record exists (shared data - no user_id filter)
         const recordCheck = await query(
-            `SELECT id FROM ${recordType} WHERE id = $1 AND user_id = $2`,
-            [recordId, req.user.id]
+            `SELECT id FROM ${recordType} WHERE id = $1`,
+            [recordId]
         );
 
         if (recordCheck.rows.length === 0) {
             return res.status(404).json({ error: 'Record not found' });
         }
 
-        // Store file in PostgreSQL
+        // Store file in PostgreSQL (shared data - user_id = 1 for all)
         const result = await query(
             `INSERT INTO files (user_id, record_type, record_id, file_name, file_type, file_size, file_data)
              VALUES ($1, $2, $3, $4, $5, $6, $7)
              RETURNING id, file_name, file_type, file_size, uploaded_at, record_type, record_id`,
             [
-                req.user.id,
+                1,
                 recordType,
                 recordId,
                 req.file.originalname,
@@ -124,8 +123,8 @@ router.get('/:id', async (req, res) => {
         const { id } = req.params;
 
         const result = await query(
-            'SELECT file_name, file_type, file_data FROM files WHERE id = $1 AND user_id = $2',
-            [id, req.user.id]
+            'SELECT file_name, file_type, file_data FROM files WHERE id = $1',
+            [id]
         );
 
         if (result.rows.length === 0) {
@@ -159,9 +158,9 @@ router.get('/record/:table/:recordId', async (req, res) => {
         const result = await query(
             `SELECT id, file_name, file_type, file_size, uploaded_at 
             FROM files 
-            WHERE record_type = $1 AND record_id = $2 AND user_id = $3
+            WHERE record_type = $1 AND record_id = $2
             ORDER BY uploaded_at DESC`,
-            [table, recordId, req.user.id]
+            [table, recordId]
         );
 
         res.json({
@@ -183,8 +182,8 @@ router.delete('/:id', async (req, res) => {
         const { id } = req.params;
 
         const result = await query(
-            'DELETE FROM files WHERE id = $1 AND user_id = $2 RETURNING id',
-            [id, req.user.id]
+            'DELETE FROM files WHERE id = $1 RETURNING id',
+            [id]
         );
 
         if (result.rows.length === 0) {
