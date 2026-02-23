@@ -153,20 +153,105 @@ class ReminderIndicators {
         const dateStr = time.toLocaleDateString([], { month: 'short', day: 'numeric' });
 
         item.innerHTML = `
-            <div class="reminder-dropdown-time">${dateStr} ${timeStr}</div>
-            <div class="reminder-dropdown-title">${reminder.title || 'Reminder'}</div>
-            ${reminder.description ? `<div class="reminder-dropdown-desc">${reminder.description}</div>` : ''}
+            <div class="reminder-dropdown-content" onclick="window.reminderIndicators.viewReminder(${reminder.id})">
+                <div class="reminder-dropdown-time">${dateStr} ${timeStr}</div>
+                <div class="reminder-dropdown-title">${reminder.title || 'Reminder'}</div>
+                ${reminder.description ? `<div class="reminder-dropdown-desc">${reminder.description}</div>` : ''}
+            </div>
+            <div class="reminder-dropdown-actions">
+                <button class="reminder-action-btn complete" onclick="event.stopPropagation(); window.reminderIndicators.completeReminder(${reminder.id})" title="Mark as completed">
+                    <i data-lucide="check" width="14" height="14"></i>
+                    <span>Complete</span>
+                </button>
+                <button class="reminder-action-btn snooze" onclick="event.stopPropagation(); window.reminderIndicators.remindTomorrow(${reminder.id})" title="Remind me tomorrow">
+                    <i data-lucide="sun" width="14" height="14"></i>
+                    <span>Remind tomorrow</span>
+                </button>
+            </div>
         `;
 
-        item.addEventListener('click', () => {
-            if (window.app) {
-                window.app.showSection('reminders');
-                window.app.viewRecord(reminder.id);
-            }
-            this.reminderListContainer?.classList.remove('show');
-        });
-
         return item;
+    }
+
+    viewReminder(reminderId) {
+        if (window.app) {
+            window.app.showSection('reminders');
+            window.app.viewRecord(reminderId);
+        }
+        this.reminderListContainer?.classList.remove('show');
+    }
+
+    async completeReminder(reminderId) {
+        if (!window.dashboardAuth?.token) return;
+
+        try {
+            const response = await fetch(`${window.API_BASE_URL || ''}/api/reminders/${reminderId}/complete`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${window.dashboardAuth.token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            if (response.ok) {
+                // Remove from list and refresh
+                this.loadAllReminders();
+                // Show toast notification
+                if (window.showToast) {
+                    window.showToast('Reminder marked as completed', 'success');
+                }
+            } else {
+                console.error('Failed to complete reminder');
+            }
+        } catch (error) {
+            console.error('Error completing reminder:', error);
+        }
+    }
+
+    async remindTomorrow(reminderId) {
+        if (!window.dashboardAuth?.token) return;
+
+        // Calculate tomorrow at 9 AM
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(9, 0, 0, 0);
+
+        try {
+            const response = await fetch(`${window.API_BASE_URL || ''}/api/reminders/${reminderId}/schedule`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${window.dashboardAuth.token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ reminder_date: tomorrow.toISOString() })
+            });
+
+            if (response.ok) {
+                this.loadAllReminders();
+                if (window.showToast) {
+                    window.showToast('Reminder scheduled for tomorrow at 9:00 AM', 'info');
+                }
+            } else {
+                // Fallback to snooze if schedule endpoint doesn't exist
+                const snoozeResponse = await fetch(`${window.API_BASE_URL || ''}/api/reminders/${reminderId}/snooze`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${window.dashboardAuth.token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ minutes: 1440 }) // 24 hours
+                });
+
+                if (snoozeResponse.ok) {
+                    this.loadAllReminders();
+                    if (window.showToast) {
+                        window.showToast('Reminder snoozed for 24 hours', 'info');
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error scheduling reminder:', error);
+        }
     }
 
     toggleReminderList() {

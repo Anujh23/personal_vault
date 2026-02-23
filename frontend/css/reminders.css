@@ -466,8 +466,7 @@
 }
 
 .reminder-dropdown-item {
-    padding: 10px 12px;
-    cursor: pointer;
+    padding: 0;
     border-bottom: 1px solid var(--color-border-light, #f1f5f9);
     transition: background-color 0.15s ease;
 }
@@ -478,6 +477,52 @@
 
 .reminder-dropdown-item:last-child {
     border-bottom: none;
+}
+
+.reminder-dropdown-content {
+    padding: 10px 12px;
+    cursor: pointer;
+}
+
+.reminder-dropdown-actions {
+    display: flex;
+    gap: 8px;
+    padding: 0 12px 10px 12px;
+}
+
+.reminder-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.reminder-action-btn.complete {
+    background-color: #10b981;
+    color: white;
+}
+
+.reminder-action-btn.complete:hover {
+    background-color: #059669;
+}
+
+.reminder-action-btn.snooze {
+    background-color: #f59e0b;
+    color: white;
+}
+
+.reminder-action-btn.snooze:hover {
+    background-color: #d97706;
+}
+
+.reminder-action-btn i {
+    stroke-width: 2.5;
 }
 
 .reminder-dropdown-time {

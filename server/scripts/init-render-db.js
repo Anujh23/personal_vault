@@ -290,6 +290,58 @@ const createTables = async () => {
         `);
         console.log('✅ Business Info table created');
 
+        // Loans table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS loans (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                family_member_id INTEGER REFERENCES family_members(id) ON DELETE SET NULL,
+                name VARCHAR(200) NOT NULL,
+                borrower_name VARCHAR(200) NOT NULL,
+                lender_name VARCHAR(200) NOT NULL,
+                loan_type VARCHAR(50),
+                loan_amount DECIMAL(15, 2) NOT NULL,
+                interest_rate DECIMAL(5, 2),
+                loan_term_years INTEGER,
+                loan_term_months INTEGER,
+                emi_amount DECIMAL(15, 2),
+                loan_start_date DATE NOT NULL,
+                loan_end_date DATE,
+                next_payment_date DATE,
+                loan_status VARCHAR(20) NOT NULL,
+                collateral TEXT,
+                purpose TEXT,
+                guarantor VARCHAR(200),
+                account_number VARCHAR(50),
+                bank_branch VARCHAR(200),
+                contact_person VARCHAR(200),
+                contact_number VARCHAR(20),
+                email VARCHAR(255),
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ Loans table created');
+
+        // Income Sheet table
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS income_sheet (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+                family_member_id INTEGER REFERENCES family_members(id) ON DELETE SET NULL,
+                entry_date DATE NOT NULL,
+                narration TEXT NOT NULL,
+                amount DECIMAL(15, 2) NOT NULL,
+                transaction_type VARCHAR(20) CHECK (transaction_type IN ('Income', 'Expense')),
+                category VARCHAR(50),
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        console.log('✅ Income Sheet table created');
+
         // Reminders table
         await client.query(`
             CREATE TABLE IF NOT EXISTS reminders (
@@ -328,6 +380,21 @@ const createTables = async () => {
             console.log('✅ Updated reminders status constraint');
         } catch (e) {
             console.log('ℹ️ Status constraint update skipped (may already be correct)');
+        }
+
+        // Add snooze columns if they don't exist
+        try {
+            await client.query(`
+                ALTER TABLE reminders 
+                ADD COLUMN IF NOT EXISTS snooze_count INTEGER DEFAULT 0
+            `);
+            await client.query(`
+                ALTER TABLE reminders 
+                ADD COLUMN IF NOT EXISTS snooze_until TIMESTAMP
+            `);
+            console.log('✅ Added snooze columns to reminders table');
+        } catch (e) {
+            console.log('ℹ️ Snooze columns update skipped (may already exist)');
         }
 
         // Reminder Files table
@@ -383,6 +450,8 @@ const createTables = async () => {
         await client.query(`CREATE INDEX IF NOT EXISTS idx_files_record ON files(record_type, record_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_reminders_user_date ON reminders(user_id, reminder_date)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_loans_user_id ON loans(user_id)`);
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_income_sheet_user_id ON income_sheet(user_id)`);
         console.log('✅ Indexes created');
 
         console.log('\n🎉 All tables created successfully in Render PostgreSQL!');

@@ -171,6 +171,44 @@ router.post('/:id/snooze', authenticateToken, async (req, res) => {
     }
 });
 
+// Schedule reminder for a specific date/time
+router.post('/:id/schedule', authenticateToken, async (req, res) => {
+    try {
+        const { reminder_date } = req.body;
+
+        if (!reminder_date) {
+            return res.status(400).json({ error: 'reminder_date is required' });
+        }
+
+        const queryStr = `
+            UPDATE reminders 
+            SET reminder_date = $3,
+                notification_sent = false,
+                snooze_until = NULL,
+                updated_at = NOW()
+            WHERE id = $1 
+            AND user_id = $2
+            RETURNING *
+        `;
+
+        const { rows } = await query(queryStr, [req.params.id, req.user.id, reminder_date]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Reminder not found' });
+        }
+
+        const formattedDate = new Date(reminder_date).toLocaleString();
+        res.json({
+            success: true,
+            reminder: rows[0],
+            message: `Reminder scheduled for ${formattedDate}`
+        });
+    } catch (error) {
+        console.error('Error scheduling reminder:', error);
+        res.status(500).json({ error: 'Failed to schedule reminder' });
+    }
+});
+
 // Upload file for reminder
 router.post('/:id/files', authenticateToken, upload.single('file'), async (req, res) => {
     try {

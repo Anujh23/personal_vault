@@ -36,7 +36,7 @@ const limiter = rateLimit({
     }
 });
 app.use('/api', limiter);
-app.use('/auth', limiter);
+app.use(limiter);
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
@@ -59,7 +59,7 @@ app.get('/health', (req, res) => {
 });
 
 // API routes
-app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
 app.use('/api', crudRoutes);
 app.use('/api/files', fileRoutes);
 app.use('/api/reminders', reminderRoutes);

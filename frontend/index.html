@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Personal Dashboard - Online</title>
+    <link rel="icon" type="image/svg+xml"
+        href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230ea5e9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z'/%3E%3Cpath d='m9 12 2 2 4-4'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="/src/style.css">
     <link rel="stylesheet" href="/css/reminders.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -48,9 +50,11 @@
     <div id="loginScreen" class="login-screen" style="display: flex;">
         <div class="login-container">
             <div class="login-header">
-                <div class="login-logo">🔐</div>
-                <h2>Personal Dashboard</h2>
-                <p>Please enter your credentials to access your dashboard</p>
+                <div class="login-logo">
+                    <i data-lucide="shield-check" width="32" height="32"></i>
+                </div>
+                <h2>LifeVault</h2>
+                <p>Securely manage your personal information</p>
             </div>
             <form id="loginForm" class="login-form">
                 <div class="input-group">
@@ -65,12 +69,8 @@
                 </div>
                 <button type="submit" class="login-btn">
                     <span class="btn-text">Login</span>
-                    <span class="btn-icon">→</span>
                 </button>
                 <div id="loginMessage" class="login-message"></div>
-                <div class="login-credentials">
-                    <small>💡 Welcome to your online dashboard!</small>
-                </div>
             </form>
         </div>
     </div>
@@ -109,55 +109,13 @@
                         </a>
                     </div>
 
-                    <!-- Personal & Family Section -->
+                    <!-- Personal Info Section -->
                     <div class="nav-group">
-                        <div class="nav-group-title">Personal & Family</div>
+                        <div class="nav-group-title">Personal Info</div>
                         <a href="#" class="nav-link" data-section="personal_info">
                             <i data-lucide="user" class="nav-icon"></i>
-                            <span>Personal Info</span>
+                            <span>Personal Information</span>
                         </a>
-                        <a href="#" class="nav-link" data-section="family_members">
-                            <i data-lucide="users" class="nav-icon"></i>
-                            <span>Family Members</span>
-                        </a>
-                        <a href="#" class="nav-link" data-section="family-tree">
-                            <i data-lucide="git-branch" class="nav-icon"></i>
-                            <span>Family Tree</span>
-                        </a>
-                    </div>
-
-                    <!-- Financial Section -->
-                    <div class="nav-group">
-                        <div class="nav-group-title">Financial</div>
-                        <a href="#" class="nav-link" data-section="shareholdings">
-                            <i data-lucide="trending-up" class="nav-icon"></i>
-                            <span>Shareholdings</span>
-                        </a>
-                        <a href="#" class="nav-link" data-section="banking_details">
-                            <i data-lucide="landmark" class="nav-icon"></i>
-                            <span>Banking Details</span>
-                        </a>
-                        <a href="#" class="nav-link" data-section="stocks">
-                            <i data-lucide="bar-chart-3" class="nav-icon"></i>
-                            <span>Stocks & Investments</span>
-                        </a>
-                        <a href="#" class="nav-link" data-section="policies">
-                            <i data-lucide="shield-check" class="nav-icon"></i>
-                            <span>Insurance Policies</span>
-                        </a>
-                        <a href="#" class="nav-link" data-section="loans">
-                            <i data-lucide="banknote" class="nav-icon"></i>
-                            <span>Loans</span>
-                        </a>
-                        <a href="#" class="nav-link" data-section="income_sheet">
-                            <i data-lucide="trending-up" class="nav-icon"></i>
-                            <span>Income Sheet</span>
-                        </a>
-                    </div>
-
-                    <!-- Assets & Properties Section -->
-                    <div class="nav-group">
-                        <div class="nav-group-title">Assets & Properties</div>
                         <a href="#" class="nav-link" data-section="properties">
                             <i data-lucide="home" class="nav-icon"></i>
                             <span>Properties</span>
@@ -168,21 +126,55 @@
                         </a>
                     </div>
 
-                    <!-- Business Section -->
+                    <!-- Family Info Section -->
                     <div class="nav-group">
-                        <div class="nav-group-title">Business</div>
-                        <a href="#" class="nav-link" data-section="business_info">
-                            <i data-lucide="building-2" class="nav-icon"></i>
-                            <span>Business Info</span>
+                        <div class="nav-group-title">Family Info</div>
+                        <a href="#" class="nav-link" data-section="family_members">
+                            <i data-lucide="users" class="nav-icon"></i>
+                            <span>Family Members</span>
+                        </a>
+                        <a href="#" class="nav-link" data-section="family-tree">
+                            <i data-lucide="git-branch" class="nav-icon"></i>
+                            <span>Family Tree</span>
                         </a>
                     </div>
 
-                    <!-- Utilities Section -->
+                    <!-- Financial Info Section -->
                     <div class="nav-group">
-                        <div class="nav-group-title">Utilities</div>
+                        <div class="nav-group-title">Financial Info</div>
+                        <a href="#" class="nav-link" data-section="banking_details">
+                            <i data-lucide="landmark" class="nav-icon"></i>
+                            <span>Banking Details</span>
+                        </a>
+                        <a href="#" class="nav-link" data-section="income_sheet">
+                            <i data-lucide="file-text" class="nav-icon"></i>
+                            <span>Income Sheet</span>
+                        </a>
+                        <a href="#" class="nav-link" data-section="shareholdings">
+                            <i data-lucide="trending-up" class="nav-icon"></i>
+                            <span>Shareholdings</span>
+                        </a>
+                        <a href="#" class="nav-link" data-section="stocks">
+                            <i data-lucide="bar-chart-3" class="nav-icon"></i>
+                            <span>Stocks & Investments</span>
+                        </a>
+                    </div>
+
+                    <!-- Business Info Section -->
+                    <div class="nav-group">
+                        <div class="nav-group-title">Business Info</div>
+                        <a href="#" class="nav-link" data-section="business_info">
+                            <i data-lucide="building-2" class="nav-icon"></i>
+                            <span>Business Information</span>
+                        </a>
+                    </div>
+
+                    <!-- Reminders Section -->
+                    <div class="nav-group">
+                        <div class="nav-group-title">Reminders</div>
                         <a href="#" class="nav-link" data-section="reminders">
                             <i data-lucide="bell" class="nav-icon"></i>
-                            <span>Reminders</span>
+                            <span>All Reminders</span>
                         </a>
                         <a href="#" class="nav-link" data-section="files">
                             <i data-lucide="folder-open" class="nav-icon"></i>
@@ -260,17 +252,24 @@
                         <!-- Welcome Section -->
                         <div class="dashboard-welcome">
                             <div class="welcome-content">
-                                <h1 class="welcome-title">Welcome to Dashboard</h1>
+                                <div class="welcome-header">
+                                    <i data-lucide="shield-check" class="welcome-icon"></i>
+                                    <h1 class="welcome-title">Welcome to LifeVault</h1>
+                                    <p class="welcome-subtitle">Your secure personal information management system</p>
+                                </div>
                                 <div class="welcome-stats">
                                     <div class="welcome-stat">
+                                        <i data-lucide="database" class="welcome-stat-icon"></i>
                                         <span class="welcome-stat-value" id="totalRecords">0</span>
                                         <span class="welcome-stat-label">Total Records</span>
                                     </div>
                                     <div class="welcome-stat">
+                                        <i data-lucide="folder" class="welcome-stat-icon"></i>
                                         <span class="welcome-stat-value" id="totalFiles">0</span>
                                         <span class="welcome-stat-label">Files Stored</span>
                                     </div>
                                     <div class="welcome-stat">
+                                        <i data-lucide="bell" class="welcome-stat-icon"></i>
                                         <span class="welcome-stat-value" id="activeReminders">0</span>
                                         <span class="welcome-stat-label">Active Reminders</span>
                                     </div>
@@ -283,7 +282,7 @@
                             <div class="stat-card primary" data-section="personal_info">
                                 <div class="stat-header">
                                     <div class="stat-title">Personal Info</div>
-                                    <div class="stat-icon">👤</div>
+                                    <i data-lucide="user" class="stat-icon"></i>
                                 </div>
                                 <div class="stat-value" id="personal_info_count">0</div>
                                 <div class="stat-subtitle">
@@ -294,7 +293,7 @@
                             <div class="stat-card success" data-section="properties">
                                 <div class="stat-header">
                                     <div class="stat-title">Properties</div>
-                                    <div class="stat-icon">🏠</div>
+                                    <i data-lucide="home" class="stat-icon"></i>
                                 </div>
                                 <div class="stat-value" id="properties_count">0</div>
                                 <div class="stat-subtitle">
@@ -305,7 +304,7 @@
                             <div class="stat-card warning" data-section="assets">
                                 <div class="stat-header">
                                     <div class="stat-title">Assets</div>
-                                    <div class="stat-icon">💎</div>
+                                    <i data-lucide="gem" class="stat-icon"></i>
                                 </div>
                                 <div class="stat-value" id="assets_count">0</div>
                                 <div class="stat-subtitle">
@@ -316,7 +315,7 @@
                             <div class="stat-card info" data-section="banking_details">
                                 <div class="stat-header">
                                     <div class="stat-title">Bank Accounts</div>
-                                    <div class="stat-icon">🏦</div>
+                                    <i data-lucide="building-2" class="stat-icon"></i>
                                 </div>
                                 <div class="stat-value" id="banking_details_count">0</div>
                                 <div class="stat-subtitle">
@@ -324,10 +323,21 @@
                                 </div>
                             </div>
 
+                            <div class="stat-card primary" data-section="income_sheet">
+                                <div class="stat-header">
+                                    <div class="stat-title">Income Sheet</div>
+                                    <i data-lucide="trending-up" class="stat-icon"></i>
+                                </div>
+                                <div class="stat-value" id="income_sheet_count">0</div>
+                                <div class="stat-subtitle">
+                                    Entries
+                                </div>
+                            </div>
+
                             <div class="stat-card primary" data-section="stocks">
                                 <div class="stat-header">
                                     <div class="stat-title">Investments</div>
-                                    <div class="stat-icon">📊</div>
+                                    <i data-lucide="bar-chart-2" class="stat-icon"></i>
                                 </div>
                                 <div class="stat-value" id="stocks_count">0</div>
                                 <div class="stat-subtitle">
@@ -335,32 +345,10 @@
                                 </div>
                             </div>
 
-                            <div class="stat-card warning" data-section="policies">
-                                <div class="stat-header">
-                                    <div class="stat-title">Policies</div>
-                                    <div class="stat-icon">🛡️</div>
-                                </div>
-                                <div class="stat-value" id="policies_count">0</div>
-                                <div class="stat-subtitle">
-                                    Active
-                                </div>
-                            </div>
-
-                            <div class="stat-card info" data-section="loans">
-                                <div class="stat-header">
-                                    <div class="stat-title">Loans</div>
-                                    <div class="stat-icon">💰</div>
-                                </div>
-                                <div class="stat-value" id="loans_count">0</div>
-                                <div class="stat-subtitle">
-                                    Active
-                                </div>
-                            </div>
-
                             <div class="stat-card warning" data-section="family_members">
                                 <div class="stat-header">
                                     <div class="stat-title">Family Members</div>
-                                    <div class="stat-icon">👨‍👩‍👧‍👦</div>
+                                    <i data-lucide="users" class="stat-icon"></i>
                                 </div>
                                 <div class="stat-value" id="family_members_count">0</div>
                                 <div class="stat-subtitle">
@@ -371,7 +359,7 @@
                             <div class="stat-card info" data-section="shareholdings">
                                 <div class="stat-header">
                                     <div class="stat-title">Shareholding</div>
-                                    <div class="stat-icon">📊</div>
+                                    <i data-lucide="pie-chart" class="stat-icon"></i>
                                 </div>
                                 <div class="stat-value" id="shareholdings_count">0</div>
                                 <div class="stat-subtitle">
@@ -381,71 +369,43 @@
                         </div>
 
                         <!-- Dashboard Sections -->
-                        <div class="dashboard-sections">
+                        <div class="dashboard-sections two-column">
+                            <!-- Recent Activity Section -->
                             <div class="dashboard-section">
                                 <div class="section-header">
-                                    <div class="section-icon">🚀</div>
-                                    <h3 class="section-title">Quick Actions</h3>
+                                    <i data-lucide="trending-up" class="section-icon"></i>
+                                    <h3 class="section-title">Recent Activity</h3>
                                 </div>
-                                <div class="actions-grid">
-                                    <div class="action-card" data-action="add-personal">
-                                        <span class="action-icon">👤</span>
-                                        <div class="action-title">Add Personal Info</div>
-                                    </div>
-                                    <div class="action-card" data-action="add-property">
-                                        <span class="action-icon">🏠</span>
-                                        <div class="action-title">Add Property</div>
-                                    </div>
-                                    <div class="action-card" data-action="add-self">
-                                        <span class="action-icon">👤</span>
-                                        <div class="action-title">Add Yourself</div>
-                                    </div>
-                                    <div class="action-card" data-action="add-reminder">
-                                        <span class="action-icon">🔔</span>
-                                        <div class="action-title">Set Reminder</div>
-                                    </div>
-                                    <div class="action-card" data-action="export-data">
-                                        <span class="action-icon">📤</span>
-                                        <div class="action-title">Export Data</div>
-                                    </div>
-                                    <div class="action-card" data-action="analytics">
-                                        <span class="action-icon">📈</span>
-                                        <div class="action-title">View Analytics</div>
+                                <div id="recentActivity">
+                                    <div id="recentActivityList">
+                                        <div class="empty-state">
+                                            <i data-lucide="activity" class="empty-icon"></i>
+                                            <h3>No Recent Activity</h3>
+                                            <p>Start adding data to see your activity timeline</p>
+                                            <button class="btn btn-primary" onclick="app.showSection('personal_info')">
+                                                <span>Add Your First Record</span>
+                                                <span>→</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
+                            <!-- Upcoming Reminders Section -->
                             <div class="dashboard-section">
                                 <div class="section-header">
-                                    <div class="section-icon">🔔</div>
+                                    <i data-lucide="bell" class="section-icon"></i>
                                     <h3 class="section-title">Upcoming Reminders</h3>
                                 </div>
                                 <div id="upcomingReminders">
                                     <div class="empty-state">
-                                        <div class="empty-icon">🔔</div>
+                                        <i data-lucide="bell-off" class="empty-icon"></i>
                                         <h3>No Upcoming Reminders</h3>
                                         <p>All your reminders are completed or in the past</p>
                                         <button class="btn btn-primary" onclick="app.showSection('reminders')">
                                             <span>Create First Reminder</span>
                                             <span>→</span>
                                         </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Recent Activity Section -->
-                        <div class="dashboard-section">
-                            <div class="section-header">
-                                <div class="section-icon">📈</div>
-                                <h3 class="section-title">Recent Activity</h3>
-                            </div>
-                            <div id="recentActivity">
-                                <div id="recentActivityList">
-                                    <div class="empty-state">
-                                        <div class="empty-icon">📊</div>
-                                        <h3>No Recent Activity</h3>
-                                        <p>Start adding data to see your activity timeline</p>
                                     </div>
                                 </div>
                             </div>
@@ -461,15 +421,15 @@
                             </div>
                             <div class="section-actions">
                                 <button id="exportBtn" class="btn btn-secondary">
-                                    <span>📤</span>
+                                    <i data-lucide="download"></i>
                                     <span>Export</span>
                                 </button>
                                 <button id="importBtn" class="btn btn-secondary">
-                                    <span>📥</span>
+                                    <i data-lucide="upload"></i>
                                     <span>Import</span>
                                 </button>
                                 <button id="addRecordBtn" class="btn btn-primary">
-                                    <span>➕</span>
+                                    <i data-lucide="plus"></i>
                                     <span>Add New</span>
                                 </button>
                             </div>
@@ -479,7 +439,7 @@
                             <div class="table-search">
                                 <input type="text" id="tableSearch" class="search-input"
                                     placeholder="Search in table...">
-                                <span class="search-icon">🔍</span>
+                                <i data-lucide="search" class="search-icon"></i>
                             </div>
                             <div class="table-filters">
                                 <!-- Filters can be added here dynamically -->
