@@ -454,6 +454,18 @@ const createTables = async () => {
         await client.query(`CREATE INDEX IF NOT EXISTS idx_income_sheet_user_id ON income_sheet(user_id)`);
         console.log('✅ Indexes created');
 
+        // Create default admin user
+        const bcrypt = require('bcrypt');
+        const hashedPassword = await bcrypt.hash('admin123', 10);
+
+        await client.query(`
+            INSERT INTO users (username, email, password_hash, full_name, role)
+            VALUES ($1, $2, $3, $4, $5)
+            ON CONFLICT (username) DO NOTHING
+        `, ['admin', 'admin@dashboard.com', hashedPassword, 'Administrator', 'admin']);
+
+        console.log('✅ Default admin user created (username: admin, password: admin123)');
+
         console.log('\n🎉 All tables created successfully in Render PostgreSQL!');
 
     } catch (error) {
