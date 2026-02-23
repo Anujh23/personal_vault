@@ -52,10 +52,11 @@ services:
     healthCheckPath: /health
 
   # Static Frontend
-  - type: static
+  - type: web
     name: dashboard-ui
+    runtime: node
     buildCommand: echo "Frontend ready"
-    staticPublishPath: .
+    startCommand: echo "Static frontend ready"
     rootDir: frontend
     headers:
       - path: /*
