@@ -17,7 +17,7 @@ class DataManager {
         this.activityLog = this.loadActivityLog();
 
         // API Configuration - fallback to localhost if not set
-        this.API_BASE_URL = window.API_BASE_URL || 'http://localhost:3000';
+        this.API_BASE_URL = typeof window.API_BASE_URL !== 'undefined' ? window.API_BASE_URL : 'http://localhost:3000';
         window.API_BASE_URL = this.API_BASE_URL;
         console.log('🌐 API Base URL:', this.API_BASE_URL);
 
@@ -1246,7 +1246,7 @@ class DataManager {
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Close</button>
-                    <button class="btn btn-primary" onclick="app.downloadFileFromTable(${file.id}); this.closest('.modal-overlay').remove();">Download</button>
+                    <button class="btn btn-primary" onclick="(async () => { await app.downloadFileFromTable(${file.id}); })(); this.closest('.modal-overlay').remove();">Download</button>
                 </div>
             </div>
         `;
@@ -1255,67 +1255,66 @@ class DataManager {
         console.log('✅ File preview modal opened from table');
     }
 
-    // FIXED: Download File from Files Table (from previous solution)
-    downloadFileFromTable(fileId) {
-        console.log('📁 Downloading file from table:', fileId);
-
-        const filesData = this.getTableData('files');
-        const file = filesData.find(f => f.id == fileId);
-
-        if (!file) {
-            this.showToast('File not found', 'error');
-            return;
-        }
+    // FIXED: Download File from Files Table - fetches from server
+    async downloadFileFromTable(fileId) {
+        console.log('📁 Downloading file from server:', fileId);
 
         try {
-            // Handle different file path formats
-            let blob;
-
-            if (file.file_path.startsWith('data:')) {
-                // Data URL format - convert back to blob
-                const dataUrl = file.file_path;
-                const byteCharacters = atob(dataUrl.split(',')[1]);
-                const byteNumbers = new Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+            // Fetch file from server
+            const response = await fetch(`${this.API_BASE_URL}/files/${fileId}`, {
+                headers: {
+                    ...(window.dashboardAuth?.token ? { 'Authorization': `Bearer ${window.dashboardAuth.token}` } : {})
                 }
-                const byteArray = new Uint8Array(byteNumbers);
-                blob = new Blob([byteArray], { type: file.mime_type });
-            } else {
-                // Fallback - create text blob
-                blob = new Blob([file.file_path], { type: file.mime_type });
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to download: ${response.status}`);
             }
+
+            // Get filename from Content-Disposition header or use default
+            const contentDisposition = response.headers.get('Content-Disposition');
+            let filename = 'download';
+            if (contentDisposition) {
+                const match = contentDisposition.match(/filename="(.+)"/);
+                if (match) filename = match[1];
+            }
+
+            // Get the blob from response
+            const blob = await response.blob();
 
             // Create download URL
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = file.file_name;
+            link.download = filename;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
 
-            this.showToast(`Downloaded: ${file.file_name}`, 'success');
+            this.showToast(`Downloaded: ${filename}`, 'success');
         } catch (error) {
             console.error('❌ Download error:', error);
-            this.showToast('Failed to download file', 'error');
+            this.showToast('Failed to download file: ' + error.message, 'error');
         }
     }
 
-    // FIXED: Delete file from Files table (from previous solution)
-    deleteFileFromTable(fileId) {
+    // FIXED: Delete file from Files table - calls server API
+    async deleteFileFromTable(fileId) {
         this.showConfirmModal(
             'Delete File',
             'Are you sure you want to delete this file? This action cannot be undone.',
-            () => {
-                const filesData = this.getTableData('files');
-                const updatedFilesData = filesData.filter(f => f.id != fileId);
+            async () => {
+                try {
+                    // Delete from server
+                    await this.apiRequest(`/files/${fileId}`, 'DELETE');
 
-                if (this.saveTableData('files', updatedFilesData)) {
                     this.showToast('File deleted successfully', 'success');
                     this.loadTable('files');
                     this.updateDashboardStats();
+                } catch (error) {
+                    console.error('Delete file error:', error);
+                    this.showToast('Failed to delete file: ' + error.message, 'error');
                 }
             }
         );
@@ -1816,8 +1815,8 @@ class DataManager {
                         `<button class="action-btn-small view-btn" onclick="app.previewFileFromTable('${record.id}')" title="Preview Image">👁️</button>` :
                         ''
                     }
-                            <button class="action-btn-small download-btn" onclick="app.downloadFileFromTable('${record.id}')" title="Download File">⬇️</button>
-                            <button class="action-btn-small delete-btn" onclick="app.deleteFileFromTable('${record.id}')" title="Delete File">🗑️</button>
+                            <button class="action-btn-small download-btn" onclick="(async () => { await app.downloadFileFromTable('${record.id}'); })();" title="Download File">⬇️</button>
+                            <button class="action-btn-small delete-btn" onclick="(async () => { await app.deleteFileFromTable('${record.id}'); })();" title="Delete File">🗑️</button>
                         </div>
                     </td>
                 `;
@@ -4114,7 +4113,7 @@ function initializeLogin() {
 }
 
 async function verifyTokenAndShowDashboard() {
-    const apiBaseUrl = window.API_BASE_URL || 'http://localhost:3000';
+    const apiBaseUrl = typeof window.API_BASE_URL !== 'undefined' ? window.API_BASE_URL : 'http://localhost:3000';
 
     try {
         const response = await fetch(`${apiBaseUrl}/auth/me`, {

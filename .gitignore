@@ -130,3 +130,5 @@ uploads/
 tmp/
 temp/
 *.tmp
+
+.windsurf

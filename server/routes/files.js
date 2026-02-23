@@ -74,7 +74,7 @@ router.post('/upload', upload.single('file'), async (req, res) => {
         const recordId = req.body.recordId || req.body.record_id;
 
         // Validate record type
-        const validTypes = ['personal_info', 'properties', 'assets', 'banking_details', 'policies', 'stocks', 'loans', 'business_info', 'family_members'];
+        const validTypes = ['personal_info', 'properties', 'assets', 'banking_details', 'policies', 'stocks', 'loans', 'business_info', 'family_members', 'reminders', 'income_sheet'];
         if (!validTypes.includes(recordType)) {
             return res.status(400).json({ error: 'Invalid record type' });
         }
@@ -151,7 +151,7 @@ router.get('/record/:table/:recordId', async (req, res) => {
     try {
         const { table, recordId } = req.params;
 
-        const validTypes = ['personal_info', 'properties', 'assets', 'banking_details', 'policies', 'stocks', 'loans', 'business_info', 'family_members'];
+        const validTypes = ['personal_info', 'properties', 'assets', 'banking_details', 'policies', 'stocks', 'loans', 'business_info', 'family_members', 'reminders', 'income_sheet'];
         if (!validTypes.includes(table)) {
             return res.status(400).json({ error: 'Invalid table name' });
         }
