@@ -1,12 +1,11 @@
 services:
-  # Node.js API Service
-  - name: dashboard-api
+  # Combined API + Frontend (Node.js serves both)
+  - name: personal-dashboard
     type: web
     runtime: node
     plan: starter
-    buildCommand: npm install
-    startCommand: node index.js
-    rootDir: server
+    buildCommand: cd server && npm install
+    startCommand: cd server && node index.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -15,25 +14,3 @@ services:
       - key: JWT_SECRET
         generateValue: true
     healthCheckPath: /health
-
-  # Analytics Service
-  - name: personal-dashboard-analytics
-    type: web
-    runtime: python
-    plan: starter
-    buildCommand: pip install -r requirements.txt
-    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
-    rootDir: python_service
-    envVars:
-      - key: DATABASE_URL
-        value: ${DATABASE_URL}
-    healthCheckPath: /health
-
-  # Frontend
-  - name: dashboard-ui
-    type: web
-    runtime: node
-    plan: starter
-    buildCommand: echo "Frontend ready"
-    startCommand: echo "Static frontend ready"
-    rootDir: frontend
