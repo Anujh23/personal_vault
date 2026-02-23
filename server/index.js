@@ -85,7 +85,19 @@ app.use((req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });
 });
 
-app.listen(PORT, () => {
+// Test database connection at startup
+const { query } = require('./config/database');
+
+app.listen(PORT, async () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+
+    // Test database connection
+    try {
+        await query('SELECT 1');
+        console.log('✅ Database connection successful');
+    } catch (error) {
+        console.error('❌ Database connection failed:', error.message);
+        console.error('   Check DATABASE_URL environment variable');
+    }
 });
