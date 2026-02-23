@@ -1,20 +1,14 @@
 services:
   # PostgreSQL Database
-  - type: pserv
-    name: dashboard-db
-    runtime: postgres
+  - name: dashboard-db
+    type: database
     plan: starter
-    envVars:
-      - key: POSTGRES_DB
-        value: dashboard
-      - key: POSTGRES_USER
-        value: dashboard_user
-      - key: POSTGRES_PASSWORD
-        generateValue: true
+    databaseName: dashboard
+    user: dashboard_user
 
   # Node.js API Service
-  - type: web
-    name: dashboard-api
+  - name: dashboard-api
+    type: web
     runtime: node
     plan: starter
     buildCommand: npm install
@@ -32,8 +26,8 @@ services:
     healthCheckPath: /health
 
   # Analytics Service
-  - type: web
-    name: personal-dashboard-analytics
+  - name: personal-dashboard-analytics
+    type: web
     runtime: python
     plan: starter
     buildCommand: pip install -r requirements.txt
@@ -47,9 +41,10 @@ services:
     healthCheckPath: /health
 
   # Static Frontend
-  - type: web
-    name: dashboard-ui
+  - name: dashboard-ui
+    type: web
     runtime: node
+    plan: starter
     buildCommand: echo "Frontend ready"
     startCommand: echo "Static frontend ready"
     rootDir: frontend
