@@ -1504,12 +1504,33 @@ body {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--color-card-border);
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   margin-bottom: var(--space-24);
+  max-width: 100%;
+}
+
+.table-container::-webkit-scrollbar {
+  height: 8px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: var(--color-gray-100);
+  border-radius: var(--radius-sm);
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: var(--color-gray-400);
+  border-radius: var(--radius-sm);
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-500);
 }
 
 .data-table {
   width: 100%;
+  min-width: 800px;
   border-collapse: collapse;
 }
 
@@ -1552,6 +1573,82 @@ body {
 .actions-cell {
   width: 140px;
   white-space: nowrap;
+}
+
+/* File Attachment Column Styles */
+.files-cell {
+  width: 120px;
+  white-space: nowrap;
+}
+
+.file-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.file-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0 2px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-base);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-standard);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.file-btn:hover {
+  background: var(--color-secondary);
+  color: var(--color-primary);
+  transform: translateY(-1px);
+}
+
+.file-btn.upload {
+  color: var(--color-success);
+}
+
+.file-btn.upload:hover {
+  background: var(--color-mint-100);
+}
+
+.file-btn.view {
+  color: var(--color-info);
+}
+
+.file-btn.view:hover {
+  background: var(--color-sky-100);
+}
+
+.file-btn.download {
+  color: var(--color-primary);
+}
+
+.file-btn.download:hover {
+  background: var(--color-sky-100);
+}
+
+.file-btn.delete {
+  color: var(--color-error);
+}
+
+.file-btn.delete:hover {
+  background: var(--color-rose-100);
+}
+
+.file-count {
+  font-size: 11px;
+  background: var(--color-primary);
+  color: white;
+  border-radius: 10px;
+  padding: 2px 6px;
+  margin-left: 4px;
 }
 
 .action-btn {

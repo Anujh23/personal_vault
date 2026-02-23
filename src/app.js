@@ -1590,10 +1590,10 @@ class DataManager {
                 { name: 'amount', label: 'Amount', step: '0.01' },
                 { name: 'category', label: 'Category' }
             ];
-            headers = ['Date', 'Narration', 'Type', 'Amount', 'Category', 'Actions'];
+            headers = ['Date', 'Narration', 'Type', 'Amount', 'Category', 'Files', 'Actions'];
         } else {
             displayFields = table.fields.slice(0, 6); // Show first 6 fields in table
-            headers = ['ID', ...displayFields.map(f => f.label), 'Actions'];
+            headers = ['ID', ...displayFields.map(f => f.label), 'Files', 'Actions'];
         }
 
         // Store display fields for rendering and filtering
@@ -1604,8 +1604,8 @@ class DataManager {
         thead.innerHTML = `
             <tr>
                 ${headers.map((header, index) => {
-            // Don't add filter for Actions column
-            if (header === 'Actions') {
+            // Don't add filter for Actions or Files column
+            if (header === 'Actions' || header === 'Files') {
                 return `<th>${header}</th>`;
             }
             // For ID column in non-income_sheet tables
@@ -1856,6 +1856,12 @@ class DataManager {
 
                     return `<td title="${value}"><span class="${className}">${this.truncateText(value, 40)}</span></td>`;
                 }).join('')}
+                    <td class="files-cell">
+                        <div class="file-actions" id="files-${record.id}">
+                            <button class="file-btn upload" onclick="app.uploadFileToRecord('${this.currentTable}', '${record.id}')" title="Upload File">📎</button>
+                            <span class="file-count" id="file-count-${record.id}" style="display:none">0</span>
+                        </div>
+                    </td>
                     <td class="actions-cell">
                         <div class="action-buttons">
                             <button class="action-btn-small view-btn" onclick="app.viewRecord('${record.id}')" title="View Details">👁️</button>
@@ -1864,6 +1870,9 @@ class DataManager {
                         </div>
                     </td>
                 `;
+
+                // Load file count for this record
+                this.loadRecordFiles(this.currentTable, record.id);
             } else {
                 // Standard rendering for all other tables (personal_info, family_members, etc.)
                 const displayFields = this.currentDisplayFields || [];
@@ -1885,6 +1894,12 @@ class DataManager {
 
                     return `<td title="${value}"><span class="cell-content">${this.truncateText(value, 40)}</span></td>`;
                 }).join('')}
+                    <td class="files-cell">
+                        <div class="file-actions" id="files-${record.id}">
+                            <button class="file-btn upload" onclick="app.uploadFileToRecord('${this.currentTable}', '${record.id}')" title="Upload File">📎</button>
+                            <span class="file-count" id="file-count-${record.id}" style="display:none">0</span>
+                        </div>
+                    </td>
                     <td class="actions-cell">
                         <div class="action-buttons">
                             <button class="action-btn-small view-btn" onclick="app.viewRecord('${record.id}')" title="View Details">👁️</button>
@@ -4046,9 +4061,239 @@ class DataManager {
             const li = document.createElement('li');
             li.textContent = `[${item._table}] ${item.name || JSON.stringify(item)}`;
             ul.appendChild(li);
+            const fileCountEl = document.getElementById(`file-count-${recordId}`);
+            const fileActionsEl = document.getElementById(`files-${recordId}`);
+
+            if (fileCountEl && files.length > 0) {
+                fileCountEl.textContent = files.length;
+                fileCountEl.style.display = 'inline';
+            }
+
+            if (fileActionsEl && files.length > 0) {
+                // Add view button if files exist
+                const viewBtn = document.createElement('button');
+                viewBtn.className = 'file-btn view';
+                viewBtn.title = 'View Files';
+                viewBtn.innerHTML = '📁';
+                viewBtn.onclick = () => this.viewFilesForRecord(table, recordId);
+                fileActionsEl.appendChild(viewBtn);
+            }
         });
 
         container.appendChild(ul);
+    }
+
+    // NEW: Upload file to a record
+    async uploadFileToRecord(table, recordId) {
+        console.log('📎 Uploading file to record:', table, recordId);
+
+        // Create file input
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.multiple = true;
+        fileInput.accept = '*/*';
+
+        fileInput.onchange = async (e) => {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            this.showToast(`Uploading ${files.length} file(s)...`, 'info');
+
+            for (const file of files) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('recordId', recordId);
+                    formData.append('recordType', table);
+
+                    await fetch(`${this.API_BASE_URL}/files/upload`, {
+                        method: 'POST',
+                        headers: {
+                            ...(window.dashboardAuth?.token ? { 'Authorization': `Bearer ${window.dashboardAuth.token}` } : {})
+                        },
+                        body: formData
+                    });
+
+                    this.showToast(`Uploaded: ${file.name}`, 'success');
+                } catch (error) {
+                    console.error('Error uploading file:', error);
+                    this.showToast(`Failed to upload: ${file.name}`, 'error');
+                }
+            }
+
+            // Refresh file count
+            this.loadRecordFiles(table, recordId);
+        };
+
+        fileInput.click();
+    }
+
+    // NEW: View files for a record in modal
+    async viewFilesForRecord(table, recordId) {
+        try {
+            const result = await this.apiRequest(`/files/record/${table}/${recordId}`);
+            const files = result.files || [];
+
+            if (files.length === 0) {
+                this.showToast('No files attached to this record', 'info');
+                return;
+            }
+
+            // Build file list HTML
+            const filesHtml = files.map(file => `
+                <div class="file-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-base); margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 24px;">${this.getFileIcon(file.mime_type)}</span>
+                        <div>
+                            <div style="font-weight: 500;">${file.file_name}</div>
+                            <div style="font-size: 12px; color: var(--color-text-secondary);">${this.formatFileSize(file.file_size)} • ${file.mime_type}</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary" onclick="app.downloadFileFromTable('${file.id}')" title="Download">⬇️</button>
+                        <button class="btn btn-danger" onclick="app.deleteFileFromTable('${file.id}')" title="Delete">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+
+            this.showModal('Files', `
+                <div style="max-height: 400px; overflow-y: auto;">
+                    ${filesHtml}
+                </div>
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-border);">
+                    <button class="btn btn-primary" onclick="app.uploadFileToRecord('${table}', '${recordId}'); app.closeModal();">
+                        📎 Upload New File
+                    </button>
+                </div>
+            `);
+        } catch (error) {
+            console.error('Error viewing files:', error);
+            this.showToast('Failed to load files', 'error');
+        }
+    }
+
+    // NEW: Get file icon based on mime type
+    getFileIcon(mimeType) {
+        if (!mimeType) return '📄';
+        if (mimeType.startsWith('image/')) return '🖼️';
+        if (mimeType.includes('pdf')) return '📕';
+        if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
+        if (mimeType.includes('excel') || mimeType.includes('sheet')) return '📊';
+        if (mimeType.includes('text')) return '📃';
+        return '📄';
+    }
+
+    // NEW: Load files for a record and update UI
+    async loadRecordFiles(table, recordId) {
+        try {
+            const result = await this.apiRequest(`/files/record/${table}/${recordId}`);
+            const files = result.files || [];
+
+            const fileCountEl = document.getElementById(`file-count-${recordId}`);
+            const fileActionsEl = document.getElementById(`files-${recordId}`);
+
+            if (fileCountEl && files.length > 0) {
+                fileCountEl.textContent = files.length;
+                fileCountEl.style.display = 'inline';
+            }
+
+            if (fileActionsEl && files.length > 0) {
+                const viewBtn = document.createElement('button');
+                viewBtn.className = 'file-btn view';
+                viewBtn.title = 'View Files';
+                viewBtn.innerHTML = '📁';
+                viewBtn.onclick = () => this.viewFilesForRecord(table, recordId);
+                fileActionsEl.appendChild(viewBtn);
+            }
+        } catch (error) {
+            console.error('Error loading record files:', error);
+        }
+    }
+
+    // NEW: Upload file to a record
+    async uploadFileToRecord(table, recordId) {
+        console.log('📎 Uploading file to record:', table, recordId);
+
+        const fileInput = document.createElement('input');
+        fileInput.type = 'file';
+        fileInput.multiple = true;
+        fileInput.accept = '*/*';
+
+        fileInput.onchange = async (e) => {
+            const files = e.target.files;
+            if (!files.length) return;
+
+            this.showToast(`Uploading ${files.length} file(s)...`, 'info');
+
+            for (const file of files) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('recordId', recordId);
+                    formData.append('recordType', table);
+
+                    await fetch(`${this.API_BASE_URL}/files/upload`, {
+                        method: 'POST',
+                        headers: {
+                            ...(window.dashboardAuth?.token ? { 'Authorization': `Bearer ${window.dashboardAuth.token}` } : {})
+                        },
+                        body: formData
+                    });
+
+                    this.showToast(`Uploaded: ${file.name}`, 'success');
+                } catch (error) {
+                    console.error('Error uploading file:', error);
+                    this.showToast(`Failed to upload: ${file.name}`, 'error');
+                }
+            }
+
+            this.loadRecordFiles(table, recordId);
+        };
+
+        fileInput.click();
+    }
+
+    // NEW: View files for a record in modal
+    async viewFilesForRecord(table, recordId) {
+        try {
+            const result = await this.apiRequest(`/files/record/${table}/${recordId}`);
+            const files = result.files || [];
+
+            if (files.length === 0) {
+                this.showToast('No files attached to this record', 'info');
+                return;
+            }
+
+            const filesHtml = files.map(file => `
+                <div class="file-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-base); margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span style="font-size: 24px;">${this.getFileIcon(file.mime_type)}</span>
+                        <div>
+                            <div style="font-weight: 500;">${file.file_name}</div>
+                            <div style="font-size: 12px; color: var(--color-text-secondary);">${this.formatFileSize(file.file_size)} • ${file.mime_type}</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary" onclick="app.downloadFileFromTable('${file.id}')" title="Download">⬇️</button>
+                        <button class="btn btn-danger" onclick="app.deleteFileFromTable('${file.id}')" title="Delete">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+
+            this.showModal('Files', `
+                <div style="max-height: 400px; overflow-y: auto;">
+                    ${filesHtml}
+                </div>
+                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-border);">
+                    <button class="btn btn-primary" onclick="app.uploadFileToRecord('${table}', '${recordId}'); app.closeModal();">
+                        📎 Upload New File
+                    </button>
+                </div>
+            `);
+        } catch (error) {
+            console.error('Error viewing files:', error);
+            this.showToast('Failed to load files', 'error');
+        }
     }
 
 }   // ✅ end of class DataManager
@@ -4068,12 +4313,10 @@ window.app = app;
 // NEW: Connect Search + Render Activity on Load
 // ==========================
 document.getElementById('searchInput')?.addEventListener('input', e => {
-    // ✅ use the correct instance name
     app.performGlobalSearch(e.target.value);
 });
 
 document.addEventListener('DOMContentLoaded', () => {
-    // ✅ use the correct instance name
     app.renderRecentActivity();
 });
 
@@ -4125,7 +4368,6 @@ async function verifyTokenAndShowDashboard() {
         });
 
         if (response.ok) {
-            // Token is valid – show the dashboard and load initial data
             showDashboard();
             if (window.app) {
                 window.app.showSection('dashboard');
@@ -4134,7 +4376,6 @@ async function verifyTokenAndShowDashboard() {
                 window.app.loadUpcomingReminders();
             }
         } else {
-            // Token no longer valid – clear auth state and show login
             dashboardAuth.isLoggedIn = false;
             dashboardAuth.currentUser = null;
             dashboardAuth.token = null;
@@ -4154,7 +4395,7 @@ function setupLoginHandlers() {
     const loginForm = document.getElementById('loginForm');
     if (loginForm) {
         loginForm.addEventListener('submit', function (e) {
-            e.preventDefault(); // Prevent default form submission
+            e.preventDefault();
             handleLogin(e);
         });
     }
@@ -4163,7 +4404,6 @@ function setupLoginHandlers() {
 async function handleLogin(e) {
     e.preventDefault();
 
-    // Clean up URL immediately to prevent ? from showing
     if (window.location.search) {
         const cleanUrl = window.location.href.split('?')[0];
         window.history.replaceState({}, document.title, cleanUrl);
@@ -4237,13 +4477,11 @@ function showDashboard() {
     if (mainApp) mainApp.style.display = 'block';
     if (logoutContainer) logoutContainer.style.display = 'block';
 
-    // Update username in user dropdown
     const userNameEl = document.getElementById('userName');
     if (userNameEl && dashboardAuth?.currentUser?.username) {
         userNameEl.textContent = dashboardAuth.currentUser.username;
     }
 
-    // Clean up URL - remove any query parameters
     if (window.location.search) {
         const cleanUrl = window.location.href.split('?')[0];
         window.history.replaceState({}, document.title, cleanUrl);
@@ -4276,7 +4514,6 @@ function logout() {
 
     showLoginScreen();
 
-    // Reset the SPA view back to the starting dashboard state
     if (window.app && typeof window.app.showSection === 'function') {
         window.app.currentTable = null;
         window.app.showSection('dashboard');
@@ -4293,216 +4530,3 @@ function getCurrentUser() {
 function isUserLoggedIn() {
     return dashboardAuth.isLoggedIn;
 }
-
-
-
-
-// ================================================
-// NON-IMAGE FILE DOWNLOAD FIX - TARGETED SOLUTION
-// ================================================
-
-// Override the file upload handling to properly store non-image files for download
-const originalHandleFileUpload = window.DataManager ? window.DataManager.prototype.handleFileUpload : null;
-
-// Enhanced file storage for non-image files
-function ensureFileDownloadData(file) {
-    return new Promise((resolve) => {
-        console.log('Ensuring download data for file:', file.name, file.type);
-
-        if (file.type.startsWith('image/')) {
-            // Images are handled differently, use existing logic
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                file.dataUrl = e.target.result;
-                file.downloadReady = true;
-                resolve(file);
-            };
-            reader.readAsDataURL(file);
-        } else {
-            // NON-IMAGE FILES - Store multiple formats for reliable download
-            const reader = new FileReader();
-            reader.onload = function (e) {
-                // Store as data URL
-                file.dataUrl = e.target.result;
-                file.downloadReady = true;
-
-                // Also store raw ArrayBuffer for backup
-                const arrayBufferReader = new FileReader();
-                arrayBufferReader.onload = function (e2) {
-                    file.arrayBufferData = e2.target.result;
-                    file.originalFile = file; // Keep reference to original File object
-                    console.log('✅ Non-image file prepared for download:', file.name);
-                    resolve(file);
-                };
-                arrayBufferReader.readAsArrayBuffer(file);
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-}
-
-// Fixed download function specifically for non-image files
-window.downloadNonImageFile = function (fileId) {
-    console.log('🔄 Downloading non-image file:', fileId);
-
-    // Try to find file in uploaded files first
-    let file = null;
-    if (window.app && window.app.uploadedFiles) {
-        file = window.app.uploadedFiles.find(f => f.id == fileId);
-    }
-
-    // If not found, try to find in files table
-    if (!file && window.app) {
-        const filesData = window.app.getTableData('files') || [];
-        file = filesData.find(f => f.id == fileId);
-    }
-
-    if (!file) {
-        if (window.app) window.app.showToast('File not found', 'error');
-        console.error('File not found:', fileId);
-        return;
-    }
-
-    console.log('Found file for download:', file);
-
-    try {
-        let blob = null;
-
-        // Try multiple data sources for non-image files
-        if (file.originalFile && file.originalFile instanceof File) {
-            // Best option: original File object
-            blob = file.originalFile;
-            console.log('✅ Using original File object');
-
-        } else if (file.arrayBufferData) {
-            // Good option: ArrayBuffer data
-            blob = new Blob([file.arrayBufferData], { type: file.type || file.mime_type || 'application/octet-stream' });
-            console.log('✅ Using ArrayBuffer data');
-
-        } else if (file.dataUrl && file.dataUrl.startsWith('data:')) {
-            // Fallback: data URL
-            const parts = file.dataUrl.split(',');
-            if (parts.length === 2) {
-                const mimeMatch = parts[0].match(/data:([^;]+)/);
-                const mimeType = mimeMatch ? mimeMatch[1] : (file.type || file.mime_type || 'application/octet-stream');
-
-                try {
-                    const byteCharacters = atob(parts[1]);
-                    const byteNumbers = new Array(byteCharacters.length);
-                    for (let i = 0; i < byteCharacters.length; i++) {
-                        byteNumbers[i] = byteCharacters.charCodeAt(i);
-                    }
-                    const byteArray = new Uint8Array(byteNumbers);
-                    blob = new Blob([byteArray], { type: mimeType });
-                    console.log('✅ Using data URL conversion');
-                } catch (e) {
-                    console.error('Failed to decode base64:', e);
-                }
-            }
-
-        } else if (file.filepath && file.filepath.startsWith('data:')) {
-            // Alternative data URL location
-            const parts = file.filepath.split(',');
-            if (parts.length === 2) {
-                const mimeMatch = parts[0].match(/data:([^;]+)/);
-                const mimeType = mimeMatch ? mimeMatch[1] : (file.type || file.mime_type || 'application/octet-stream');
-
-                try {
-                    const byteCharacters = atob(parts[1]);
-                    const byteNumbers = new Array(byteCharacters.length);
-                    for (let i = 0; i < byteCharacters.length; i++) {
-                        byteNumbers[i] = byteCharacters.charCodeAt(i);
-                    }
-                    const byteArray = new Uint8Array(byteNumbers);
-                    blob = new Blob([byteArray], { type: mimeType });
-                    console.log('✅ Using filepath data URL');
-                } catch (e) {
-                    console.error('Failed to decode filepath base64:', e);
-                }
-            }
-        }
-
-        if (!blob) {
-            console.error('❌ No valid data source found for file:', file);
-            if (window.app) window.app.showToast('Cannot download: file data not available', 'error');
-            return;
-        }
-
-        // Create download
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = file.name || file.filename || file.file_name || `download_${Date.now()}`;
-
-        // Add to DOM, click, and remove
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        // Clean up URL after short delay
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-
-        console.log('✅ Non-image file download initiated:', link.download);
-        if (window.app) window.app.showToast(`Downloaded ${link.download}`, 'success');
-
-    } catch (error) {
-        console.error('❌ Non-image download error:', error);
-        if (window.app) window.app.showToast('Failed to download file: ' + error.message, 'error');
-    }
-};
-
-// Enhanced file upload processor for non-images
-window.processNonImageUpload = async function (files) {
-    console.log('🔄 Processing non-image files for reliable download:', files.length);
-
-    const processedFiles = [];
-
-    for (const file of files) {
-        try {
-            const enhancedFile = await ensureFileDownloadData(file);
-            processedFiles.push(enhancedFile);
-            console.log('✅ Processed file:', enhancedFile.name);
-        } catch (error) {
-            console.error('❌ Failed to process file:', file.name, error);
-            processedFiles.push(file); // Add anyway with warning
-        }
-    }
-
-    return processedFiles;
-};
-
-// Override existing download functions to use the new non-image handler
-const originalDownloadFile = window.downloadFileFixed || window.downloadFile;
-window.downloadFileFixed = function (fileId) {
-    console.log('🔄 Download requested for:', fileId);
-
-    // Determine if this is a non-image file
-    let file = null;
-    if (window.app && window.app.uploadedFiles) {
-        file = window.app.uploadedFiles.find(f => f.id == fileId);
-    }
-
-    if (!file && window.app) {
-        const filesData = window.app.getTableData('files') || [];
-        file = filesData.find(f => f.id == fileId);
-    }
-
-    if (file && !file.type.startsWith('image/') && !file.mime_type?.startsWith('image/')) {
-        console.log('🎯 Routing to non-image download handler');
-        downloadNonImageFile(fileId);
-    } else {
-        console.log('🎯 Routing to original download handler');
-        if (originalDownloadFile) {
-            originalDownloadFile(fileId);
-        } else {
-            downloadNonImageFile(fileId); // Fallback
-        }
-    }
-};
-
-// Also override table download function
-window.downloadFileFromTableFixed = function (fileId) {
-    downloadNonImageFile(fileId);
-};
-
-console.log('✅ Non-image file download fix applied');
