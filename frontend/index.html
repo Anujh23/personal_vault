@@ -18,7 +18,11 @@
         // API Configuration - Uses same origin in production
         window.API_BASE_URL = window.location.hostname === 'localhost'
             ? 'http://localhost:3000'
-            : ''; // Empty = same origin
+            : ''; // Empty string = use relative URLs (same origin)
+
+        console.log('🔧 API_BASE_URL:', window.API_BASE_URL);
+        console.log('🔧 Hostname:', window.location.hostname);
+        console.log('🔧 Origin:', window.location.origin);
 
         // Python Analytics Service URL
         window.PYTHON_API_URL = window.location.hostname === 'localhost'
