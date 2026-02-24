@@ -128,12 +128,28 @@ router.get('/dashboard/stats', async (req, res) => {
             stats[table] = parseInt(result.rows[0].count);
         }
 
-        // Get file count
-        const fileResult = await query(
-            'SELECT COUNT(*) FROM files',
-            []
-        );
-        stats.files = parseInt(fileResult.rows[0].count);
+        // Get file count from all entity tables (files stored in JSONB columns)
+        let totalFiles = 0;
+        const entityTables = [
+            'personal_info', 'family_members', 'shareholdings', 'properties',
+            'assets', 'banking_details', 'stocks', 'policies', 'business_info',
+            'loans', 'income_sheet', 'reminders'
+        ];
+
+        for (const table of entityTables) {
+            try {
+                const filesResult = await query(`
+                    SELECT COALESCE(SUM(jsonb_array_length(files)), 0) as count
+                    FROM ${table}
+                    WHERE files IS NOT NULL AND files != '[]'::jsonb
+                `);
+                totalFiles += parseInt(filesResult.rows[0]?.count || 0);
+            } catch (e) {
+                // Table might not exist or files column not added yet
+                console.log(`Skipping file count for ${table}: ${e.message}`);
+            }
+        }
+        stats.files = totalFiles;
 
         // Get active reminders count (both 'Active' and 'pending' for backward compatibility)
         const reminderResult = await query(

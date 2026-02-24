@@ -57,6 +57,7 @@ const createTables = async () => {
                 current_address TEXT,
                 permanent_address TEXT,
                 is_self BOOLEAN DEFAULT false,
+                files JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -79,11 +80,12 @@ const createTables = async () => {
                 father_id INTEGER REFERENCES family_members(id),
                 mother_id INTEGER REFERENCES family_members(id),
                 is_alive BOOLEAN DEFAULT true,
+                files JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `);
-        console.log('✅ Family Members table created');
+        console.log(' Family Members table created');
 
         // Shareholdings table
         await client.query(`
@@ -100,6 +102,7 @@ const createTables = async () => {
                 current_value DECIMAL(15, 2),
                 remarks TEXT,
                 filter_name VARCHAR(100),
+                files JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -144,6 +147,7 @@ const createTables = async () => {
                 mutation VARCHAR(100),
                 remark TEXT,
                 other_documents TEXT,
+                files JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -174,6 +178,7 @@ const createTables = async () => {
                 warranty_expiry_date DATE,
                 remarks TEXT,
                 other_documents TEXT,
+                files JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -200,6 +205,7 @@ const createTables = async () => {
                 card_type VARCHAR(50),
                 card_no VARCHAR(50),
                 card_expiry VARCHAR(20),
+                files JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -220,6 +226,7 @@ const createTables = async () => {
                 status VARCHAR(50),
                 profit_loss DECIMAL(15, 2),
                 filter_name VARCHAR(100),
+                files JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -254,6 +261,7 @@ const createTables = async () => {
                 sum_insured DECIMAL(15, 2),
                 bonus_or_additional DECIMAL(15, 2),
                 other_documents TEXT,
+                files JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -284,6 +292,7 @@ const createTables = async () => {
                 license_numbers TEXT,
                 tax_registration_details TEXT,
                 business_description TEXT,
+                files JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -318,6 +327,7 @@ const createTables = async () => {
                 contact_number VARCHAR(20),
                 email VARCHAR(255),
                 notes TEXT,
+                files JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -336,6 +346,7 @@ const createTables = async () => {
                 transaction_type VARCHAR(20) CHECK (transaction_type IN ('Income', 'Expense')),
                 category VARCHAR(50),
                 notes TEXT,
+                files JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -360,6 +371,7 @@ const createTables = async () => {
                 snooze_until TIMESTAMP,
                 repeat_type VARCHAR(20),
                 repeat_interval INTEGER,
+                files JSONB DEFAULT '[]'::jsonb,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -412,22 +424,6 @@ const createTables = async () => {
         `);
         console.log('✅ Reminder Files table created');
 
-        // Files table
-        await client.query(`
-            CREATE TABLE IF NOT EXISTS files (
-                id SERIAL PRIMARY KEY,
-                user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-                record_type VARCHAR(50) NOT NULL,
-                record_id INTEGER NOT NULL,
-                file_name VARCHAR(255) NOT NULL,
-                file_type VARCHAR(100),
-                file_size INTEGER,
-                file_data BYTEA NOT NULL,
-                uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        `);
-        console.log('✅ Files table created');
-
         // Activity Logs table
         await client.query(`
             CREATE TABLE IF NOT EXISTS activity_logs (
@@ -447,24 +443,30 @@ const createTables = async () => {
         // Create indexes for better performance
         await client.query(`CREATE INDEX IF NOT EXISTS idx_personal_info_user_id ON personal_info(user_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_family_members_user_id ON family_members(user_id)`);
-        await client.query(`CREATE INDEX IF NOT EXISTS idx_files_record ON files(record_type, record_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_activity_logs_user_id ON activity_logs(user_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_reminders_user_date ON reminders(user_id, reminder_date)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_loans_user_id ON loans(user_id)`);
         await client.query(`CREATE INDEX IF NOT EXISTS idx_income_sheet_user_id ON income_sheet(user_id)`);
         console.log('✅ Indexes created');
 
-        // Create default admin user
+        // Create default users
         const bcrypt = require('bcrypt');
-        const hashedPassword = await bcrypt.hash('admin123', 10);
 
-        await client.query(`
-            INSERT INTO users (username, email, password_hash, full_name, role)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (username) DO NOTHING
-        `, ['admin', 'admin@dashboard.com', hashedPassword, 'Administrator', 'admin']);
+        const users = [
+            { username: 'admin', password: 'admin123', email: 'admin@dashboard.com', fullName: 'Administrator', role: 'admin' },
+            { username: 'Deepesh', password: 'Deepesh@007', email: 'deepesh@dashboard.com', fullName: 'Deepesh', role: 'user' },
+            { username: 'Ifra', password: 'Ifra@123', email: 'ifra@dashboard.com', fullName: 'Ifra', role: 'user' }
+        ];
 
-        console.log('✅ Default admin user created (username: admin, password: admin123)');
+        for (const user of users) {
+            const hashedPassword = await bcrypt.hash(user.password, 10);
+            await client.query(`
+                INSERT INTO users (username, email, password_hash, full_name, role)
+                VALUES ($1, $2, $3, $4, $5)
+                ON CONFLICT (username) DO NOTHING
+            `, [user.username, user.email, hashedPassword, user.fullName, user.role]);
+            console.log(`✅ User created: ${user.username}`);
+        }
 
         console.log('\n🎉 All tables created successfully in Render PostgreSQL!');
 

@@ -1,4 +1,4 @@
-// Personal Dashboard - COMPLETE SOLUTION: Premium UI + Working Family Tree + Self Management
+﻿// Personal Dashboard - COMPLETE SOLUTION: Premium UI + Working Family Tree + Self Management
 window.dashboardAuth = window.dashboardAuth || { isLoggedIn: false, currentUser: null, token: null };
 class DataManager {
     constructor() {
@@ -19,7 +19,7 @@ class DataManager {
         // API Configuration - fallback to localhost if not set
         this.API_BASE_URL = typeof window.API_BASE_URL !== 'undefined' ? window.API_BASE_URL : 'http://localhost:3000';
         window.API_BASE_URL = this.API_BASE_URL;
-        console.log('🌐 API Base URL:', this.API_BASE_URL);
+        console.log('🔌 API Base URL:', this.API_BASE_URL);
 
         // Hook save function to update activity log
         const originalSaveData = this.saveData?.bind(this);
@@ -512,7 +512,7 @@ class DataManager {
 
             business_info: {
                 name: "Business Information",
-                icon: "🏢",
+                icon: "💼",
                 fields: [
                     { name: 'family_member_id', label: 'Linked Person', type: 'family_member_select' },
                     { name: 'business_name', label: 'Business Name', type: 'text', required: true },
@@ -689,7 +689,7 @@ class DataManager {
         if (recordForm) {
             recordForm.addEventListener('submit', (e) => {
                 e.preventDefault();
-                console.log('📝 Form submit event triggered');
+                console.log('📋 Form submit event triggered');
                 this.saveRecord();
             });
             console.log('✓ Form submit event listener added');
@@ -740,9 +740,9 @@ class DataManager {
         const element = document.getElementById(elementId);
         if (element) {
             element.addEventListener(event, handler);
-            console.log(`✓ Event listener set up for ${elementId}:${event}`);
+            console.log(` Event listener set up for ${elementId}:${event}`);
         } else {
-            console.warn(`⚠️  Element not found: ${elementId}`);
+            console.warn(` Element not found: ${elementId}`);
         }
     }
 
@@ -798,11 +798,11 @@ class DataManager {
         const fileInput = document.getElementById('fileInput');
 
         if (!dropZone || !fileInput) {
-            console.warn('⚠️  File upload elements not found');
+            console.warn(' File upload elements not found');
             return;
         }
 
-        console.log('🔧 Initializing file upload system...');
+        console.log('');
 
         // Remove existing listeners to prevent duplicates
         const newDropZone = dropZone.cloneNode(true);
@@ -813,7 +813,7 @@ class DataManager {
 
         // Add fresh event listeners
         newDropZone.addEventListener('click', () => {
-            console.log('📁 Drop zone clicked, opening file dialog...');
+            console.log(' Drop zone clicked, opening file dialog...');
             newFileInput.click();
         });
 
@@ -829,30 +829,30 @@ class DataManager {
         newDropZone.addEventListener('drop', (e) => {
             e.preventDefault();
             newDropZone.classList.remove('drag-over');
-            console.log('📁 Files dropped:', e.dataTransfer.files.length);
+            console.log(' Files dropped:', e.dataTransfer.files.length);
             this.handleFileUploadFixed(e.dataTransfer.files);
         });
 
         newFileInput.addEventListener('change', (e) => {
-            console.log('📁 Files selected:', e.target.files.length);
+            console.log(' Files selected:', e.target.files.length);
             this.handleFileUploadFixed(e.target.files);
             // Reset file input value
             e.target.value = '';
         });
 
         this.fileUploadInitialized = true;
-        console.log('✅ File upload system initialized');
+        console.log('');
     }
 
     // COMPLETELY FIXED: File Upload Handler with Immediate Preview Ready (from previous solution)
     handleFileUploadFixed(files) {
-        console.log('📁 Processing file upload:', files.length, 'files');
+        console.log(' Processing file upload:', files.length, 'files');
 
         const uploadedFilesDiv = document.getElementById('uploadedFiles');
         const filesListDiv = document.getElementById('filesList');
 
         if (!uploadedFilesDiv || !filesListDiv) {
-            console.error('❌ Upload container elements not found');
+            console.error(' Upload container elements not found');
             return;
         }
 
@@ -891,7 +891,7 @@ class DataManager {
                         this.showToast(`${files.length} file(s) uploaded successfully`, 'success');
                     }
                 }).catch((error) => {
-                    console.error('❌ Error processing file:', file.name, error);
+                    console.error(' Error processing file:', file.name, error);
                     this.showToast(`Error processing file: ${file.name}`, 'error');
                 });
             }
@@ -904,7 +904,7 @@ class DataManager {
     // FIXED: Immediate File Processing for Preview (from previous solution)
     async processFileForStorageImmediate(file, fileObj) {
         return new Promise((resolve, reject) => {
-            console.log('🔄 Processing file for immediate preview:', file.name);
+            console.log(' Processing file for immediate preview:', file.name);
 
             let readersCompleted = 0;
             const totalReaders = file.type.startsWith('image/') ? 2 : 1; // Images need both dataUrl and ArrayBuffer
@@ -913,7 +913,7 @@ class DataManager {
                 readersCompleted++;
                 if (readersCompleted === totalReaders) {
                     fileObj.isReady = true;
-                    console.log('✅ File completely processed:', file.name);
+                    console.log(' File completely processed:', file.name);
                     resolve(fileObj);
                 }
             };
@@ -924,11 +924,11 @@ class DataManager {
                 readerDataUrl.onload = (e) => {
                     fileObj.dataUrl = e.target.result;
                     fileObj.previewReady = true; // FIXED: Mark preview as ready immediately
-                    console.log('✅ Image preview ready IMMEDIATELY:', file.name);
+                    console.log(' Image preview ready IMMEDIATELY:', file.name);
                     checkCompletion();
                 };
                 readerDataUrl.onerror = (e) => {
-                    console.error('❌ Error reading image for preview:', file.name, e);
+                    console.error(' Error reading image for preview:', file.name, e);
                     checkCompletion(); // Continue even if preview fails
                 };
                 readerDataUrl.readAsDataURL(file);
@@ -938,12 +938,12 @@ class DataManager {
             const readerArrayBuffer = new FileReader();
             readerArrayBuffer.onload = (e) => {
                 fileObj.arrayBuffer = e.target.result;
-                console.log('✅ File data ready for download:', file.name);
+                console.log(' File data ready for download:', file.name);
                 checkCompletion();
             };
 
             readerArrayBuffer.onerror = (e) => {
-                console.error('❌ Error reading file for download:', file.name, e);
+                console.error(' Error reading file for download:', file.name, e);
                 reject(e);
             };
 
@@ -974,7 +974,7 @@ class DataManager {
             return false;
         }
 
-        console.log('✅ File validation passed:', file.name, `(${this.formatFileSize(file.size)})`);
+        console.log(' File validation passed:', file.name, `(${this.formatFileSize(file.size)})`);
         return true;
     }
 
@@ -998,9 +998,9 @@ class DataManager {
                 </div>
             </div>
             <div class="file-actions">
-                ${isImage ? `<button type="button" class="file-action-btn preview-btn" onclick="app.previewImageImmediately(${fileObj.id})" title="Preview Image">👁️</button>` : ''}
+                ${isImage ? `<button type="button" class="file-action-btn preview-btn" onclick="app.previewImageImmediately(${fileObj.id})" title="Preview Image">🖼️</button>` : ''}
                 <button type="button" class="file-action-btn download-btn" onclick="app.downloadFileFixed(${fileObj.id})" title="Download File">⬇️</button>
-                <button type="button" class="file-action-btn remove-btn" onclick="app.removeFileFixed(${fileObj.id})" title="Remove File">❌</button>
+                <button type="button" class="file-action-btn remove-btn" onclick="app.removeFileFixed(${fileObj.id})" title="Remove File">🗑️</button>
             </div>
         `;
 
@@ -1207,7 +1207,7 @@ class DataManager {
 
     // FIXED: Preview File from Files Table (from previous solution)
     previewFileFromTable(fileId) {
-        console.log('👁️ Previewing file from table:', fileId);
+        console.log('🖼️ Previewing file from table:', fileId);
 
         const filesData = this.getTableData('files');
         const file = filesData.find(f => f.id == fileId);
@@ -1255,13 +1255,13 @@ class DataManager {
         console.log('✅ File preview modal opened from table');
     }
 
-    // FIXED: Download File from Files Table - fetches from server
-    async downloadFileFromTable(fileId) {
-        console.log('📁 Downloading file from server:', fileId);
+    // FIXED: Download File from Entity Table - Updated for new storage
+    async downloadFileFromTable(table, recordId, fileId) {
+        console.log('📁 Downloading file from entity:', table, recordId, fileId);
 
         try {
-            // Fetch file from server
-            const response = await fetch(`${this.API_BASE_URL}/files/${fileId}`, {
+            // Fetch file from new API endpoint
+            const response = await fetch(`${this.API_BASE_URL}/files/download/${table}/${recordId}/${fileId}`, {
                 headers: {
                     ...(window.dashboardAuth?.token ? { 'Authorization': `Bearer ${window.dashboardAuth.token}` } : {})
                 }
@@ -1299,19 +1299,21 @@ class DataManager {
         }
     }
 
-    // FIXED: Delete file from Files table - calls server API
-    async deleteFileFromTable(fileId) {
+    // FIXED: Delete file from Entity Table - Updated for new storage
+    async deleteFileFromTable(table, recordId, fileId) {
         this.showConfirmModal(
             'Delete File',
             'Are you sure you want to delete this file? This action cannot be undone.',
             async () => {
                 try {
-                    // Delete from server
-                    await this.apiRequest(`/files/${fileId}`, 'DELETE');
+                    // Delete from new API endpoint
+                    await this.apiRequest(`/files/${table}/${recordId}/${fileId}`, 'DELETE');
 
                     this.showToast('File deleted successfully', 'success');
-                    this.loadTable('files');
-                    this.updateDashboardStats();
+                    // Refresh the file list modal if open
+                    if (this.currentTable && this.currentRecordId) {
+                        this.viewFilesForRecord(this.currentTable, this.currentRecordId);
+                    }
                 } catch (error) {
                     console.error('Delete file error:', error);
                     this.showToast('Failed to delete file: ' + error.message, 'error');
@@ -1392,7 +1394,7 @@ class DataManager {
     }
 
     showSection(sectionName) {
-        console.log('📍 Showing section:', sectionName);
+        console.log('📌 Showing section:', sectionName);
         this.currentSection = sectionName;
 
         // Update navigation active state
@@ -1812,7 +1814,7 @@ class DataManager {
                     <td class="actions-cell">
                         <div class="action-buttons">
                             ${record.mime_type && record.mime_type.startsWith('image/') ?
-                        `<button class="action-btn-small view-btn" onclick="app.previewFileFromTable('${record.id}')" title="Preview Image">👁️</button>` :
+                        `<button class="action-btn-small view-btn" onclick="app.previewFileFromTable('${record.id}')" title="Preview Image">🖼️</button>` :
                         ''
                     }
                             <button class="action-btn-small download-btn" onclick="(async () => { await app.downloadFileFromTable('${record.id}'); })();" title="Download File">⬇️</button>
@@ -1859,6 +1861,7 @@ class DataManager {
                     <td class="files-cell">
                         <div class="file-actions" id="files-${record.id}">
                             <button class="file-btn upload" onclick="app.uploadFileToRecord('${this.currentTable}', '${record.id}')" title="Upload File">📎</button>
+                            <button class="file-btn view" onclick="app.viewFilesForRecord('${this.currentTable}', '${record.id}')" title="View Files">📁</button>
                             <span class="file-count" id="file-count-${record.id}" style="display:none">0</span>
                         </div>
                     </td>
@@ -1897,6 +1900,7 @@ class DataManager {
                     <td class="files-cell">
                         <div class="file-actions" id="files-${record.id}">
                             <button class="file-btn upload" onclick="app.uploadFileToRecord('${this.currentTable}', '${record.id}')" title="Upload File">📎</button>
+                            <button class="file-btn view" onclick="app.viewFilesForRecord('${this.currentTable}', '${record.id}')" title="View Files">📁</button>
                             <span class="file-count" id="file-count-${record.id}" style="display:none">0</span>
                         </div>
                     </td>
@@ -2398,7 +2402,7 @@ class DataManager {
                         
                         ${member.address ? `
                         <div class="details-section">
-                            <h4>🏠 Address</h4>
+                            <h4>🏦 Address</h4>
                             <div class="details-grid">
                                 <div class="detail-item full-width">
                                     <span class="detail-value">${member.address}</span>
@@ -2475,17 +2479,6 @@ class DataManager {
                 modal.remove();
                 document.body.classList.remove('modal-open');
             }, 300);
-        }
-    }
-
-    // NEW: Get Table Data
-    async getTableData(tableName) {
-        try {
-            const result = await this.apiRequest(`/api/${tableName}`);
-            return result.data || [];
-        } catch (error) {
-            console.error(`Error loading ${tableName} from database:`, error);
-            return [];
         }
     }
 
@@ -2605,6 +2598,7 @@ class DataManager {
         if (num >= 10000000) return (num / 10000000).toFixed(2) + ' Cr';
         if (num >= 100000) return (num / 100000).toFixed(2) + ' Lakh';
         if (num >= 1000) return (num / 1000).toFixed(2) + 'K';
+        return num.toFixed(2);
     }
 
     // NEW: Render linked data sections
@@ -2616,7 +2610,7 @@ class DataManager {
             const totalValue = linkedData.properties.reduce((sum, p) => sum + (parseFloat(p.property_value) || 0), 0);
             sections.push(`
                 <div class="details-section linked-section">
-                    <h4>🏘️ Properties (${linkedData.properties.length})</h4>
+                    <h4>🏦� Properties (${linkedData.properties.length})</h4>
                     <div class="linked-items">
                         ${linkedData.properties.map(p => `
                             <div class="linked-item" onclick="app.viewRecordByType('properties', '${p.id}')" style="cursor: pointer;">
@@ -3298,13 +3292,39 @@ class DataManager {
             recordData[key] = value;
         }
 
+        console.log('📋 Raw form data keys:', Object.keys(recordData));
+        console.log('📋 Raw form data:', recordData);
+
+        // FALLBACK: If FormData is empty, manually collect from inputs
+        if (Object.keys(recordData).length === 0) {
+            console.warn('⚠️ FormData empty, manually collecting fields...');
+            const formFields = document.getElementById('formFields');
+            if (formFields) {
+                console.log('🔍 formFields HTML:', formFields.innerHTML.substring(0, 500));
+                const inputs = formFields.querySelectorAll('input, select, textarea');
+                console.log('🔍 Found inputs:', inputs.length);
+                inputs.forEach((input, i) => {
+                    console.log(`  Input ${i}: name="${input.name}", id="${input.id}", type="${input.type}", value="${input.value?.substring(0, 30)}"`);
+                    if (input.name) {
+                        recordData[input.name] = input.value;
+                    }
+                });
+                console.log('📋 Manually collected keys:', Object.keys(recordData));
+            } else {
+                console.error('❌ formFields element not found!');
+            }
+        }
+
         // Prevent Postgres type errors: do not send empty strings for optional fields.
         // (e.g. "" for numeric/date columns causes invalid input syntax)
+        // BUT keep required fields like 'name' even if empty (server will validate)
         for (const key of Object.keys(recordData)) {
-            if (recordData[key] === '') {
+            if (recordData[key] === '' && key !== 'name') {
                 delete recordData[key];
             }
         }
+
+        console.log('📋 Final data to send:', recordData);
 
         try {
             let result;
@@ -3376,17 +3396,21 @@ class DataManager {
         for (const file of this.uploadedFiles) {
             if (!file.isExisting && file.isReady) {
                 try {
-                    const formData = new FormData();
-                    formData.append('file', file.originalFile || file);
-                    formData.append('recordId', recordId);
-                    formData.append('recordType', this.currentTable);
+                    // Convert file to base64 and upload
+                    const base64Data = await this.fileToBase64(file.originalFile || file);
 
-                    await fetch(`${this.API_BASE_URL}/files/upload`, {
+                    await fetch(`${this.API_BASE_URL}/files/upload/${this.currentTable}/${recordId}`, {
                         method: 'POST',
                         headers: {
+                            'Content-Type': 'application/json',
                             ...(window.dashboardAuth?.token ? { 'Authorization': `Bearer ${window.dashboardAuth.token}` } : {})
                         },
-                        body: formData
+                        body: JSON.stringify({
+                            name: file.name || (file.originalFile ? file.originalFile.name : 'unnamed'),
+                            type: file.type || (file.originalFile ? file.originalFile.type : 'application/octet-stream'),
+                            size: file.size || (file.originalFile ? file.originalFile.size : 0),
+                            data: base64Data
+                        })
                     });
                 } catch (error) {
                     console.error('Error uploading file:', error);
@@ -3494,8 +3518,8 @@ class DataManager {
         this.editingRecord = null;
         this.isEditMode = false;
         this.uploadedFiles = [];
-        this.reminderFiles = []; // Reset reminder files
-        this.existingReminderFiles = {}; // Reset existing reminder files
+        this.reminderFiles = [];
+        this.existingReminderFiles = {};
 
         // Reset form
         const form = document.getElementById('recordForm');
@@ -3511,18 +3535,39 @@ class DataManager {
 
         // Reset file upload initialization flag
         this.fileUploadInitialized = false;
-        this.activityLog = this.loadActivityLog();
+    }
 
-        // Hook save function to update activity log
-        const originalSaveData = this.saveData?.bind(this);
-        if (originalSaveData) {
-            this.saveData = (table, record) => {
-                originalSaveData(table, record);
-                this.logActivity(`${table} updated: ${record.name || ''}`);
-                this.renderRecentActivity();
-            };
+    showGenericModal(title, contentHtml) {
+        const modalTitle = document.getElementById('modalTitle');
+        const formFields = document.getElementById('formFields');
+        if (modalTitle) modalTitle.textContent = title;
+        if (formFields) formFields.innerHTML = contentHtml;
+        this.showModal();
+    }
+
+    // Show file view modal with custom content
+    showFileViewModal(title, content) {
+        const modalOverlay = document.getElementById('fileViewModalOverlay');
+        const modalTitle = document.getElementById('fileViewModalTitle');
+        const modalBody = document.getElementById('fileViewModalBody');
+
+        if (modalOverlay && modalTitle && modalBody) {
+            modalTitle.textContent = title;
+            modalBody.innerHTML = content;
+            modalOverlay.style.display = 'flex';
+            modalOverlay.classList.add('show');
+            document.body.classList.add('modal-open');
         }
+    }
 
+    // Close file view modal
+    closeFileViewModal() {
+        const modalOverlay = document.getElementById('fileViewModalOverlay');
+        if (modalOverlay) {
+            modalOverlay.style.display = 'none';
+            modalOverlay.classList.remove('show');
+            document.body.classList.remove('modal-open');
+        }
     }
 
     showConfirmModal(title, message, callback) {
@@ -3587,12 +3632,12 @@ class DataManager {
         }
 
         fileListContainer.innerHTML = fieldFiles.map(fileObj => `
-            <div class="selected-file" data-file-id="${fileObj.id}">
-                <span class="file-name">${fileObj.file.name}</span>
-                <span class="file-size">(${this.formatFileSize(fileObj.file.size)})</span>
-                <button type="button" class="remove-file-btn" onclick="window.app.removeReminderFile('${fileObj.id}', '${fieldName}')">×</button>
-            </div>
-        `).join('');
+                <div class="selected-file" data-file-id="${fileObj.id}">
+                    <span class="file-name">${fileObj.file.name}</span>
+                    <span class="file-size">(${this.formatFileSize(fileObj.file.size)})</span>
+                    <button type="button" class="remove-file-btn" onclick="window.app.removeReminderFile('${fileObj.id}', '${fieldName}')">×</button>
+                </div>
+            `).join('');
     }
 
     // Remove a selected file
@@ -3678,20 +3723,20 @@ class DataManager {
         if (!fileListContainer) return;
 
         const existingFilesHTML = files.map(file => `
-            <div class="existing-file" data-file-id="${file.id}">
-                <span class="file-icon">📎</span>
-                <span class="file-name">${file.original_name}</span>
-                <span class="file-size">(${this.formatFileSize(file.file_size)})</span>
-                <a href="${this.API_BASE_URL}/api/reminders/files/${file.id}/download" 
-                   class="download-file-btn" 
-                   target="_blank"
-                   title="Download">⬇️</a>
-                <button type="button" 
-                        class="remove-file-btn" 
-                        onclick="window.app.deleteReminderFile(${file.id}, '${fieldName}', ${reminderId})"
-                        title="Delete">×</button>
-            </div>
-        `).join('');
+                <div class="existing-file" data-file-id="${file.id}">
+                    <span class="file-icon">📎</span>
+                    <span class="file-name">${file.original_name}</span>
+                    <span class="file-size">(${this.formatFileSize(file.file_size)})</span>
+                    <a href="${this.API_BASE_URL}/api/reminders/files/${file.id}/download" 
+                       class="download-file-btn" 
+                       target="_blank"
+                       title="Download">⬇️</a>
+                    <button type="button" 
+                            class="remove-file-btn" 
+                            onclick="window.app.deleteReminderFile(${file.id}, '${fieldName}', ${reminderId})"
+                            title="Delete">×</button>
+                </div>
+            `).join('');
 
         // Append to any already selected new files
         const existingHTML = fileListContainer.innerHTML || '';
@@ -3746,7 +3791,7 @@ class DataManager {
     performGlobalSearch(searchTerm) {
         if (!searchTerm.trim()) return;
 
-        console.log('🔍 Global search:', searchTerm);
+        console.log('📍 Global search:', searchTerm);
 
         // For now, just filter current table if one is selected
         if (this.currentTable) {
@@ -3780,15 +3825,19 @@ class DataManager {
         }
     }
 
-    exportAllData() {
+    async exportAllData() {
         const allData = {};
         let totalRecords = 0;
 
-        Object.keys(this.tables).forEach(tableName => {
-            const data = this.getTableData(tableName);
-            allData[tableName] = data;
-            totalRecords += data.length;
-        });
+        for (const tableName of Object.keys(this.tables)) {
+            try {
+                const data = await this.getTableData(tableName);
+                allData[tableName] = data;
+                totalRecords += data.length;
+            } catch (error) {
+                console.error(`Error exporting ${tableName}:`, error);
+            }
+        }
 
         if (totalRecords === 0) {
             this.showToast('No data to export', 'warning');
@@ -3957,10 +4006,10 @@ class DataManager {
         };
 
         toast.innerHTML = `
-                                            <span class="toast-icon">${icon[type] || icon.info}</span>
-                                            <span class="toast-message">${message}</span>
-                                            <button class="toast-close" onclick="this.parentElement.remove()">×</button>
-                                            `;
+                <span class="toast-icon">${icon[type] || icon.info}</span>
+                <span class="toast-message">${message}</span>
+                <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+            `;
 
         container.appendChild(toast);
 
@@ -3979,7 +4028,7 @@ class DataManager {
     }
 
     // ==========================
-    // NEW: Recent Activity + Global Search
+    // Recent Activity + Global Search
     // ==========================
 
     loadActivityLog() {
@@ -4023,27 +4072,6 @@ class DataManager {
         container.appendChild(ul);
     }
 
-    performGlobalSearch(query) {
-        query = query.trim().toLowerCase();
-        if (!query) {
-            this.showSection(this.currentSection);
-            return;
-        }
-
-        const results = [];
-        for (const [tableName, records] of Object.entries(this.tables)) {
-            records.forEach(record => {
-                if (Object.values(record).some(value =>
-                    String(value).toLowerCase().includes(query)
-                )) {
-                    results.push({ ...record, _table: tableName });
-                }
-            });
-        }
-
-        this.renderSearchResults(results);
-    }
-
     renderSearchResults(results) {
         const container = document.getElementById('searchResults');
         if (!container) return;
@@ -4061,33 +4089,15 @@ class DataManager {
             const li = document.createElement('li');
             li.textContent = `[${item._table}] ${item.name || JSON.stringify(item)}`;
             ul.appendChild(li);
-            const fileCountEl = document.getElementById(`file-count-${recordId}`);
-            const fileActionsEl = document.getElementById(`files-${recordId}`);
-
-            if (fileCountEl && files.length > 0) {
-                fileCountEl.textContent = files.length;
-                fileCountEl.style.display = 'inline';
-            }
-
-            if (fileActionsEl && files.length > 0) {
-                // Add view button if files exist
-                const viewBtn = document.createElement('button');
-                viewBtn.className = 'file-btn view';
-                viewBtn.title = 'View Files';
-                viewBtn.innerHTML = '📁';
-                viewBtn.onclick = () => this.viewFilesForRecord(table, recordId);
-                fileActionsEl.appendChild(viewBtn);
-            }
         });
 
         container.appendChild(ul);
     }
 
-    // NEW: Upload file to a record
+    // Upload file to a record - Updated for entity table storage
     async uploadFileToRecord(table, recordId) {
         console.log('📎 Uploading file to record:', table, recordId);
 
-        // Create file input
         const fileInput = document.createElement('input');
         fileInput.type = 'file';
         fileInput.multiple = true;
@@ -4101,17 +4111,21 @@ class DataManager {
 
             for (const file of files) {
                 try {
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    formData.append('recordId', recordId);
-                    formData.append('recordType', table);
+                    // Convert file to base64 and upload
+                    const base64Data = await this.fileToBase64(file);
 
-                    await fetch(`${this.API_BASE_URL}/files/upload`, {
+                    await fetch(`${this.API_BASE_URL}/files/upload/${table}/${recordId}`, {
                         method: 'POST',
                         headers: {
+                            'Content-Type': 'application/json',
                             ...(window.dashboardAuth?.token ? { 'Authorization': `Bearer ${window.dashboardAuth.token}` } : {})
                         },
-                        body: formData
+                        body: JSON.stringify({
+                            name: file.name,
+                            type: file.type || 'application/octet-stream',
+                            size: file.size,
+                            data: base64Data
+                        })
                     });
 
                     this.showToast(`Uploaded: ${file.name}`, 'success');
@@ -4121,16 +4135,29 @@ class DataManager {
                 }
             }
 
-            // Refresh file count
             this.loadRecordFiles(table, recordId);
         };
 
         fileInput.click();
     }
 
-    // NEW: View files for a record in modal
+    // Helper: Convert file to base64
+    fileToBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64 = reader.result.split(',')[1];
+                resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // View files for a record in modal
     async viewFilesForRecord(table, recordId) {
         try {
+            console.log('📂 Fetching files for:', table, recordId);
             const result = await this.apiRequest(`/files/record/${table}/${recordId}`);
             const files = result.files || [];
 
@@ -4139,40 +4166,39 @@ class DataManager {
                 return;
             }
 
-            // Build file list HTML
             const filesHtml = files.map(file => `
-                <div class="file-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-base); margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <span style="font-size: 24px;">${this.getFileIcon(file.mime_type)}</span>
-                        <div>
-                            <div style="font-weight: 500;">${file.file_name}</div>
-                            <div style="font-size: 12px; color: var(--color-text-secondary);">${this.formatFileSize(file.file_size)} • ${file.mime_type}</div>
+                    <div class="file-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-base); margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 24px;">${this.getFileIcon(file.file_type || file.type || 'application/octet-stream')}</span>
+                            <div>
+                                <div style="font-weight: 500;">${file.file_name || file.name}</div>
+                                <div style="font-size: 12px; color: var(--color-text-secondary);">${this.formatFileSize(file.file_size || file.size)} • ${file.file_type || file.type || 'Unknown'}</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary" onclick="app.downloadFileFromTable('${table}', '${recordId}', '${file.id}')" title="Download">⬇️</button>
+                            <button class="btn btn-danger" onclick="app.deleteFileFromTable('${table}', '${recordId}', '${file.id}')" title="Delete">🗑️</button>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-secondary" onclick="app.downloadFileFromTable('${file.id}')" title="Download">⬇️</button>
-                        <button class="btn btn-danger" onclick="app.deleteFileFromTable('${file.id}')" title="Delete">🗑️</button>
-                    </div>
-                </div>
-            `).join('');
+                `).join('');
 
-            this.showModal('Files', `
-                <div style="max-height: 400px; overflow-y: auto;">
-                    ${filesHtml}
-                </div>
-                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-border);">
-                    <button class="btn btn-primary" onclick="app.uploadFileToRecord('${table}', '${recordId}'); app.closeModal();">
-                        📎 Upload New File
-                    </button>
-                </div>
-            `);
+            this.showFileViewModal('Files', `
+                    <div style="display:flex; flex-direction:column; height:100%; max-height: 520px;">
+                        <div style="flex:1; min-height:0; overflow-y:auto; padding-bottom: 12px;">
+                            ${filesHtml}
+                        </div>
+                        <div style="display:flex; gap:12px; justify-content:flex-end; padding-top:16px; border-top: 1px solid var(--color-border); position: sticky; bottom: 0; background: var(--color-surface, #fff);">
+                            <button class="btn btn-primary" onclick="app.uploadFileToRecord('${table}', '${recordId}'); app.closeFileViewModal();">📎 Upload New File</button>
+                        </div>
+                    </div>
+                `);
         } catch (error) {
             console.error('Error viewing files:', error);
             this.showToast('Failed to load files', 'error');
         }
     }
 
-    // NEW: Get file icon based on mime type
+    // Get file icon based on mime type
     getFileIcon(mimeType) {
         if (!mimeType) return '📄';
         if (mimeType.startsWith('image/')) return '🖼️';
@@ -4183,124 +4209,66 @@ class DataManager {
         return '📄';
     }
 
-    // NEW: Load files for a record and update UI
+    // Load files for a record and update UI
     async loadRecordFiles(table, recordId) {
         try {
+            console.log('📍 Loading files for:', table, recordId);
             const result = await this.apiRequest(`/files/record/${table}/${recordId}`);
             const files = result.files || [];
 
             const fileCountEl = document.getElementById(`file-count-${recordId}`);
-            const fileActionsEl = document.getElementById(`files-${recordId}`);
 
-            if (fileCountEl && files.length > 0) {
+            if (fileCountEl) {
                 fileCountEl.textContent = files.length;
-                fileCountEl.style.display = 'inline';
-            }
-
-            if (fileActionsEl && files.length > 0) {
-                const viewBtn = document.createElement('button');
-                viewBtn.className = 'file-btn view';
-                viewBtn.title = 'View Files';
-                viewBtn.innerHTML = '📁';
-                viewBtn.onclick = () => this.viewFilesForRecord(table, recordId);
-                fileActionsEl.appendChild(viewBtn);
+                fileCountEl.style.display = files.length > 0 ? 'inline' : 'none';
             }
         } catch (error) {
-            console.error('Error loading record files:', error);
+            console.error('❌ Error loading record files:', error);
         }
     }
 
-    // NEW: Upload file to a record
-    async uploadFileToRecord(table, recordId) {
-        console.log('📎 Uploading file to record:', table, recordId);
-
-        const fileInput = document.createElement('input');
-        fileInput.type = 'file';
-        fileInput.multiple = true;
-        fileInput.accept = '*/*';
-
-        fileInput.onchange = async (e) => {
-            const files = e.target.files;
-            if (!files.length) return;
-
-            this.showToast(`Uploading ${files.length} file(s)...`, 'info');
-
-            for (const file of files) {
-                try {
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    formData.append('recordId', recordId);
-                    formData.append('recordType', table);
-
-                    await fetch(`${this.API_BASE_URL}/files/upload`, {
-                        method: 'POST',
-                        headers: {
-                            ...(window.dashboardAuth?.token ? { 'Authorization': `Bearer ${window.dashboardAuth.token}` } : {})
-                        },
-                        body: formData
-                    });
-
-                    this.showToast(`Uploaded: ${file.name}`, 'success');
-                } catch (error) {
-                    console.error('Error uploading file:', error);
-                    this.showToast(`Failed to upload: ${file.name}`, 'error');
-                }
-            }
-
-            this.loadRecordFiles(table, recordId);
-        };
-
-        fileInput.click();
-    }
-
-    // NEW: View files for a record in modal
-    async viewFilesForRecord(table, recordId) {
+    // View all files in the Files section
+    async viewAllFiles() {
         try {
-            const result = await this.apiRequest(`/files/record/${table}/${recordId}`);
+            const result = await this.apiRequest('/files');
             const files = result.files || [];
 
             if (files.length === 0) {
-                this.showToast('No files attached to this record', 'info');
+                this.showToast('No files uploaded yet', 'info');
                 return;
             }
 
             const filesHtml = files.map(file => `
-                <div class="file-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-base); margin-bottom: 8px;">
-                    <div style="display: flex; align-items: center; gap: 12px;">
-                        <span style="font-size: 24px;">${this.getFileIcon(file.mime_type)}</span>
-                        <div>
-                            <div style="font-weight: 500;">${file.file_name}</div>
-                            <div style="font-size: 12px; color: var(--color-text-secondary);">${this.formatFileSize(file.file_size)} • ${file.mime_type}</div>
+                    <div class="file-item" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; border: 1px solid var(--color-border); border-radius: var(--radius-base); margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <span style="font-size: 24px;">${this.getFileIcon(file.mime_type)}</span>
+                            <div>
+                                <div style="font-weight: 500;">${file.file_name}</div>
+                                <div style="font-size: 12px; color: var(--color-text-secondary);">${this.formatFileSize(file.file_size)} • ${file.mime_type} • ${file.record_type || 'General'}</div>
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 8px;">
+                            <button class="btn btn-secondary" onclick="app.downloadFileFromTable('${file.id}')" title="Download">⬇️</button>
+                            <button class="btn btn-danger" onclick="app.deleteFileFromTable('${file.id}')" title="Delete">🗑️</button>
                         </div>
                     </div>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn btn-secondary" onclick="app.downloadFileFromTable('${file.id}')" title="Download">⬇️</button>
-                        <button class="btn btn-danger" onclick="app.deleteFileFromTable('${file.id}')" title="Delete">🗑️</button>
-                    </div>
-                </div>
-            `).join('');
+                `).join('');
 
-            this.showModal('Files', `
-                <div style="max-height: 400px; overflow-y: auto;">
-                    ${filesHtml}
-                </div>
-                <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-border);">
-                    <button class="btn btn-primary" onclick="app.uploadFileToRecord('${table}', '${recordId}'); app.closeModal();">
-                        📎 Upload New File
-                    </button>
-                </div>
-            `);
+            this.showGenericModal('All Files', `
+                    <div style="max-height: 500px; overflow-y: auto;">
+                        ${filesHtml}
+                    </div>
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--color-border);">
+                        <span style="font-size: 14px; color: var(--color-text-secondary);">Total: ${files.length} file(s)</span>
+                    </div>
+                `);
         } catch (error) {
-            console.error('Error viewing files:', error);
+            console.error('Error viewing all files:', error);
             this.showToast('Failed to load files', 'error');
         }
     }
 
 }   // ✅ end of class DataManager
-
-// ==========================
-// END: Recent Activity + Global Search
-// ==========================
 
 // Initialize the application
 console.log('🚀 Starting Premium Personal Dashboard...');
@@ -4310,7 +4278,7 @@ const app = new DataManager();
 window.app = app;
 
 // ==========================
-// NEW: Connect Search + Render Activity on Load
+// Connect Search + Render Activity on Load
 // ==========================
 document.getElementById('searchInput')?.addEventListener('input', e => {
     app.performGlobalSearch(e.target.value);
@@ -4380,7 +4348,6 @@ async function verifyTokenAndShowDashboard() {
             dashboardAuth.currentUser = null;
             dashboardAuth.token = null;
             window.dashboardAuth = dashboardAuth;
-            localStorage.removeItem('dashboardAuthState');
             showLoginScreen();
             setupLoginHandlers();
         }

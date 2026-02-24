@@ -1,202 +1,260 @@
 const express = require('express');
-const multer = require('multer');
+const router = express.Router();
 const { query } = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
 
-const router = express.Router();
+// Helper function to validate table name (security)
+const VALID_TABLES = [
+    'personal_info', 'family_members', 'shareholdings', 'properties',
+    'assets', 'banking_details', 'stocks', 'policies', 'business_info',
+    'loans', 'income_sheet', 'reminders'
+];
 
-// Configure multer for memory storage (files go to PostgreSQL)
-const storage = multer.memoryStorage();
-const upload = multer({
-    storage,
-    limits: {
-        fileSize: 10 * 1024 * 1024, // 10MB limit
-    },
-    fileFilter: (req, file, cb) => {
-        // Allowed MIME types
-        const allowedTypes = [
-            'application/pdf',
-            'application/msword',
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/vnd.ms-excel',
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'image/jpeg',
-            'image/png',
-            'image/gif',
-            'image/webp',
-            'text/plain',
-            'text/csv'
-        ];
+const isValidTable = (table) => VALID_TABLES.includes(table);
 
-        if (allowedTypes.includes(file.mimetype)) {
-            cb(null, true);
-        } else {
-            cb(new Error('Invalid file type'), false);
-        }
-    }
-});
-
-// All routes require authentication
-router.use(authenticateToken);
-
-// GET /files - List all files for the authenticated user
-router.get('/', async (req, res) => {
+// Get files for a specific record from entity table
+router.get('/record/:table/:id', authenticateToken, async (req, res) => {
     try {
+        const { table, id } = req.params;
+
+        if (!isValidTable(table)) {
+            return res.status(400).json({ error: 'Invalid table name' });
+        }
+
+        // Get files from entity table
         const result = await query(
-            `SELECT id, file_name, file_type, file_size, uploaded_at, record_type, record_id
-            FROM files 
-            ORDER BY uploaded_at DESC`,
-            []
+            `SELECT files FROM ${table} WHERE id = $1`,
+            [id]
         );
 
-        res.json({
-            success: true,
-            files: result.rows.map(r => ({
-                ...r,
-                mime_type: r.file_type
-            }))
-        });
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Record not found' });
+        }
+
+        let files = result.rows[0].files || [];
+        console.log('🔍 Raw files from DB:', files);
+
+        if (typeof files === 'string') {
+            files = JSON.parse(files);
+        }
+
+        // Return file metadata without the actual data
+        const filesMetadata = files.map(f => ({
+            id: f.id,
+            file_name: f.name || f.file_name,
+            file_type: f.type || f.file_type,
+            file_size: f.size || f.file_size,
+            uploaded_at: f.uploaded_at
+        }));
+
+        console.log('🔍 Files metadata to return:', filesMetadata);
+        res.json({ files: filesMetadata });
     } catch (error) {
-        console.error('Error listing all files:', error);
-        res.status(500).json({ error: 'Failed to list files' });
+        console.error('Error getting record files:', error);
+        res.status(500).json({ error: 'Failed to get files', details: error.message });
     }
 });
 
-// POST /files/upload - Upload file
-router.post('/upload', upload.single('file'), async (req, res) => {
+// Upload file to entity table
+router.post('/upload/:table/:id', authenticateToken, async (req, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({ error: 'No file uploaded' });
+        const { table, id } = req.params;
+
+        if (!isValidTable(table)) {
+            return res.status(400).json({ error: 'Invalid table name' });
         }
 
-        const recordType = req.body.recordType || req.body.record_type;
-        const recordId = req.body.recordId || req.body.record_id;
-
-        // Validate record type
-        const validTypes = ['personal_info', 'properties', 'assets', 'banking_details', 'policies', 'stocks', 'loans', 'business_info', 'family_members', 'reminders', 'income_sheet'];
-        if (!validTypes.includes(recordType)) {
-            return res.status(400).json({ error: 'Invalid record type' });
-        }
-
-        // Verify record exists (shared data - no user_id filter)
+        // Check if record exists
         const recordCheck = await query(
-            `SELECT id FROM ${recordType} WHERE id = $1`,
-            [recordId]
+            `SELECT id, files FROM ${table} WHERE id = $1`,
+            [id]
         );
 
         if (recordCheck.rows.length === 0) {
             return res.status(404).json({ error: 'Record not found' });
         }
 
-        // Store file in PostgreSQL (shared data - user_id = 1 for all)
-        const result = await query(
-            `INSERT INTO files (user_id, record_type, record_id, file_name, file_type, file_size, file_data)
-             VALUES ($1, $2, $3, $4, $5, $6, $7)
-             RETURNING id, file_name, file_type, file_size, uploaded_at, record_type, record_id`,
-            [
-                1,
-                recordType,
-                recordId,
-                req.file.originalname,
-                req.file.mimetype,
-                req.file.size,
-                req.file.buffer // Binary content
-            ]
+        // Handle file upload from request body
+        const { name, type, size, data } = req.body;
+
+        if (!name || !data) {
+            return res.status(400).json({ error: 'File name and data are required' });
+        }
+
+        // Generate unique file ID
+        const fileId = Date.now().toString(36) + Math.random().toString(36).substr(2);
+
+        // Create file object
+        const newFile = {
+            id: fileId,
+            name: name,
+            type: type || 'application/octet-stream',
+            size: size || 0,
+            data: data, // base64 encoded
+            uploaded_at: new Date().toISOString()
+        };
+
+        // Get current files array
+        let currentFiles = recordCheck.rows[0].files || [];
+        if (typeof currentFiles === 'string') {
+            currentFiles = JSON.parse(currentFiles);
+        }
+
+        // Add new file
+        currentFiles.push(newFile);
+
+        // Update entity table
+        await query(
+            `UPDATE ${table} SET files = $1::jsonb WHERE id = $2`,
+            [JSON.stringify(currentFiles), id]
         );
 
-        res.status(201).json({
+        res.json({
             success: true,
+            message: 'File uploaded successfully',
             file: {
-                ...result.rows[0],
-                mime_type: result.rows[0].file_type
+                id: fileId,
+                name: name,
+                type: type,
+                size: size
             }
         });
     } catch (error) {
-        console.error('File upload error:', error);
-        res.status(500).json({ error: 'Failed to upload file' });
+        console.error('Error uploading file:', error);
+        res.status(500).json({ error: 'Failed to upload file', details: error.message });
     }
 });
 
-// GET /files/:id - Download file
-router.get('/:id', async (req, res) => {
+// Download file from entity table
+router.get('/download/:table/:recordId/:fileId', authenticateToken, async (req, res) => {
     try {
-        const { id } = req.params;
+        const { table, recordId, fileId } = req.params;
 
-        const result = await query(
-            'SELECT file_name, file_type, file_data FROM files WHERE id = $1',
-            [id]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'File not found' });
-        }
-
-        const file = result.rows[0];
-
-        // Set headers for file download
-        res.setHeader('Content-Type', file.file_type || 'application/octet-stream');
-        res.setHeader('Content-Disposition', `attachment; filename="${file.file_name}"`);
-
-        // Send binary content
-        res.send(file.file_data);
-    } catch (error) {
-        console.error('File download error:', error);
-        res.status(500).json({ error: 'Failed to download file' });
-    }
-});
-
-// GET /files/record/:table/:recordId - List files for a record
-router.get('/record/:table/:recordId', async (req, res) => {
-    try {
-        const { table, recordId } = req.params;
-
-        const validTypes = ['personal_info', 'properties', 'assets', 'banking_details', 'policies', 'stocks', 'loans', 'business_info', 'family_members', 'reminders', 'income_sheet'];
-        if (!validTypes.includes(table)) {
+        if (!isValidTable(table)) {
             return res.status(400).json({ error: 'Invalid table name' });
         }
 
+        // Get files from entity table
         const result = await query(
-            `SELECT id, file_name, file_type, file_size, uploaded_at 
-            FROM files 
-            WHERE record_type = $1 AND record_id = $2
-            ORDER BY uploaded_at DESC`,
-            [table, recordId]
-        );
-
-        res.json({
-            success: true,
-            files: result.rows.map(r => ({
-                ...r,
-                mime_type: r.file_type
-            }))
-        });
-    } catch (error) {
-        console.error('Error listing files:', error);
-        res.status(500).json({ error: 'Failed to list files' });
-    }
-});
-
-// DELETE /files/:id - Delete file
-router.delete('/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const result = await query(
-            'DELETE FROM files WHERE id = $1 RETURNING id',
-            [id]
+            `SELECT files FROM ${table} WHERE id = $1`,
+            [recordId]
         );
 
         if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Record not found' });
+        }
+
+        let files = result.rows[0].files || [];
+        if (typeof files === 'string') {
+            files = JSON.parse(files);
+        }
+
+        // Find the specific file
+        const file = files.find(f => f.id === fileId);
+
+        if (!file) {
             return res.status(404).json({ error: 'File not found' });
         }
 
-        res.json({
-            success: true,
-            message: 'File deleted successfully'
-        });
+        // Decode base64 data
+        const fileData = Buffer.from(file.data, 'base64');
+
+        // Set headers and send file
+        res.setHeader('Content-Type', file.type || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${file.name || file.file_name}"`);
+        res.setHeader('Content-Length', fileData.length);
+
+        res.send(fileData);
     } catch (error) {
-        console.error('File delete error:', error);
-        res.status(500).json({ error: 'Failed to delete file' });
+        console.error('Error downloading file:', error);
+        res.status(500).json({ error: 'Failed to download file', details: error.message });
+    }
+});
+
+// Delete file from entity table
+router.delete('/:table/:recordId/:fileId', authenticateToken, async (req, res) => {
+    try {
+        const { table, recordId, fileId } = req.params;
+
+        if (!isValidTable(table)) {
+            return res.status(400).json({ error: 'Invalid table name' });
+        }
+
+        // Get current files
+        const result = await query(
+            `SELECT files FROM ${table} WHERE id = $1`,
+            [recordId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Record not found' });
+        }
+
+        let files = result.rows[0].files || [];
+        if (typeof files === 'string') {
+            files = JSON.parse(files);
+        }
+
+        // Find file index - convert both to string for comparison
+        const fileIndex = files.findIndex(f => String(f.id) === String(fileId));
+
+        if (fileIndex === -1) {
+            return res.status(404).json({ error: 'File not found' });
+        }
+
+        // Remove file from array
+        files.splice(fileIndex, 1);
+
+        // Update entity table
+        await query(
+            `UPDATE ${table} SET files = $1::jsonb WHERE id = $2`,
+            [JSON.stringify(files), recordId]
+        );
+
+        res.json({ success: true, message: 'File deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting file:', error);
+        res.status(500).json({ error: 'Failed to delete file', details: error.message });
+    }
+});
+
+// Get all files across all tables (for admin/management)
+router.get('/all', authenticateToken, async (req, res) => {
+    try {
+        const allFiles = [];
+
+        for (const table of VALID_TABLES) {
+            try {
+                const result = await query(
+                    `SELECT id, files FROM ${table} WHERE files IS NOT NULL AND files != '[]'`
+                );
+
+                for (const row of result.rows) {
+                    let files = row.files || [];
+                    if (typeof files === 'string') {
+                        files = JSON.parse(files);
+                    }
+
+                    for (const file of files) {
+                        allFiles.push({
+                            ...file,
+                            table: table,
+                            record_id: row.id,
+                            name: file.name || file.file_name,
+                            type: file.type || file.file_type,
+                            size: file.size || file.file_size
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn(`Error fetching files from ${table}:`, e.message);
+            }
+        }
+
+        res.json({ files: allFiles });
+    } catch (error) {
+        console.error('Error getting all files:', error);
+        res.status(500).json({ error: 'Failed to get files', details: error.message });
     }
 });
 

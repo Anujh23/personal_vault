@@ -188,10 +188,6 @@
                             <i data-lucide="bell" class="nav-icon"></i>
                             <span>All Reminders</span>
                         </a>
-                        <a href="#" class="nav-link" data-section="files">
-                            <i data-lucide="folder-open" class="nav-icon"></i>
-                            <span>Files & Documents</span>
-                        </a>
                     </div>
                 </nav>
             </aside>
@@ -619,32 +615,7 @@
                             <!-- Form fields will be generated dynamically -->
                         </div>
 
-                        <!-- File Upload Section -->
-                        <div class="file-upload-section">
-                            <div class="file-upload-header">
-                                <h4>📎 File Attachments</h4>
-                                <small>Upload documents, images, and other files related to this record</small>
-                            </div>
-
-                            <div id="fileDropZone" class="file-drop-zone">
-                                <span class="upload-icon">📁</span>
-                                <h4>Drop files here or click to browse</h4>
-                                <p>Support for PDF, DOC, XLS, images and more</p>
-                                <div class="upload-formats">
-                                    <small>Supported: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF (Max: 10MB each)</small>
-                                </div>
-                            </div>
-
-                            <input type="file" id="fileInput" class="file-input" multiple
-                                accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv">
-
-                            <div id="uploadedFiles" class="uploaded-files">
-                                <div class="files-list" id="filesList">
-                                    <!-- Uploaded files will appear here -->
-                                </div>
-                            </div>
-                        </div>
-
+                        <!-- Note: File uploads are done via table row buttons after record is saved -->
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -679,6 +650,19 @@
                     <button type="button" id="filePreviewCloseBtn" class="btn btn-secondary">
                         <span>Close</span>
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- File View Modal (Separate from record form) -->
+        <div id="fileViewModalOverlay" class="modal-overlay" style="display: none;">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3 id="fileViewModalTitle">Files</h3>
+                    <button type="button" id="fileViewModalClose" class="modal-close">&times;</button>
+                </div>
+                <div id="fileViewModalBody" class="modal-body">
+                    <!-- File content will be inserted here -->
                 </div>
             </div>
         </div>
