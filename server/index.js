@@ -54,25 +54,12 @@ app.use((req, res, next) => {
     next();
 });
 
-// Health check endpoint with database check
-app.get('/health', async (req, res) => {
-    try {
-        // Check database connection
-        await query('SELECT 1');
-        res.json({
-            status: 'ok',
-            timestamp: new Date().toISOString(),
-            database: 'connected',
-            uptime: process.uptime()
-        });
-    } catch (error) {
-        res.status(503).json({
-            status: 'error',
-            timestamp: new Date().toISOString(),
-            database: 'disconnected',
-            error: error.message
-        });
-    }
+// Health check endpoint - simple response, no DB check
+app.get('/health', (req, res) => {
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString()
+    });
 });
 
 // API routes
@@ -108,17 +95,15 @@ const server = app.listen(PORT, () => {
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-// Keep-alive ping to prevent Render from spinning down (every 10 minutes)
-// AND to keep database connection alive
-const KEEP_ALIVE_INTERVAL = 10 * 60 * 1000; // 10 minutes
+// Keep database connection fresh (every 1 hour)
+const KEEP_ALIVE_INTERVAL = 60 * 60 * 1000; // 1 hour
 
 setInterval(async () => {
     try {
-        // Ping the database to keep connection alive
         await query('SELECT 1');
-        console.log('💓 Keep-alive ping successful');
+        console.log('💓 DB keep-alive (1 hour)');
     } catch (error) {
-        console.error('❌ Keep-alive ping failed:', error.message);
+        console.error('❌ DB keep-alive failed:', error.message);
     }
 }, KEEP_ALIVE_INTERVAL);
 
