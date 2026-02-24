@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config({ path: '../.env' });
 
 const path = require('path');
+const { query } = require('./config/database');
 
 const authRoutes = require('./routes/auth');
 const crudRoutes = require('./routes/crud');
@@ -53,9 +54,25 @@ app.use((req, res, next) => {
     next();
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Health check endpoint with database check
+app.get('/health', async (req, res) => {
+    try {
+        // Check database connection
+        await query('SELECT 1');
+        res.json({
+            status: 'ok',
+            timestamp: new Date().toISOString(),
+            database: 'connected',
+            uptime: process.uptime()
+        });
+    } catch (error) {
+        res.status(503).json({
+            status: 'error',
+            timestamp: new Date().toISOString(),
+            database: 'disconnected',
+            error: error.message
+        });
+    }
 });
 
 // API routes
@@ -85,7 +102,50 @@ app.use((req, res) => {
     res.status(404).json({ error: 'Endpoint not found' });
 });
 
-app.listen(PORT, () => {
+// Start server
+const server = app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+});
+
+// Keep-alive ping to prevent Render from spinning down (every 10 minutes)
+// AND to keep database connection alive
+const KEEP_ALIVE_INTERVAL = 10 * 60 * 1000; // 10 minutes
+
+setInterval(async () => {
+    try {
+        // Ping the database to keep connection alive
+        await query('SELECT 1');
+        console.log('💓 Keep-alive ping successful');
+    } catch (error) {
+        console.error('❌ Keep-alive ping failed:', error.message);
+    }
+}, KEEP_ALIVE_INTERVAL);
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+    console.log('👋 SIGTERM received, shutting down gracefully');
+    server.close(() => {
+        console.log('🔒 Server closed');
+        process.exit(0);
+    });
+});
+
+process.on('SIGINT', () => {
+    console.log('👋 SIGINT received, shutting down gracefully');
+    server.close(() => {
+        console.log('🔒 Server closed');
+        process.exit(0);
+    });
+});
+
+// Catch uncaught errors to prevent crashes
+process.on('uncaughtException', (err) => {
+    console.error('💥 Uncaught Exception:', err);
+    // Don't exit - let the server continue running
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+    // Don't exit - let the server continue running
 });
