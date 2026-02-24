@@ -48,9 +48,11 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/src', express.static(path.join(__dirname, '../src')));
 app.use('/assets', express.static(path.join(__dirname, '../assets')));
 
-// Request logging
+// Request logging - skip health checks to reduce noise
 app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    if (req.path !== '/health') {
+        console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+    }
     next();
 });
 
