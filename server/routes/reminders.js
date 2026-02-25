@@ -71,7 +71,7 @@ router.get('/due', authenticateToken, async (req, res) => {
 
         // Query: Get reminders that are due (reminder_date <= now) 
         // AND either not notified OR snooze time has passed
-        // Accept both 'Active' and 'pending' status for backward compatibility
+        // Accept both 'Active' and 'Pending' status for backward compatibility
         const queryStr = `
             SELECT r.*, 
                    COALESCE(json_agg(json_build_object(
@@ -84,7 +84,7 @@ router.get('/due', authenticateToken, async (req, res) => {
                    )) FILTER (WHERE rf.id IS NOT NULL), '[]') as files
             FROM reminders r
             LEFT JOIN reminder_files rf ON r.id = rf.reminder_id
-            WHERE (r.status = 'Active' OR r.status = 'pending')
+            WHERE (r.status = 'Active' OR r.status = 'Pending')
             AND r.reminder_date <= $1
             AND (
                 r.notification_sent = false 

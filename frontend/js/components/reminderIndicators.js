@@ -52,7 +52,7 @@ class ReminderIndicators {
 
             // Filter active/pending reminders
             const activeReminders = this.allReminders.filter(r =>
-                r.status === 'Active' || r.status === 'pending'
+                r.status === 'Active' || r.status === 'Pending'
             );
 
             this.updateIndicators(activeReminders);

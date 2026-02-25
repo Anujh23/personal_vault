@@ -151,17 +151,17 @@ router.get('/dashboard/stats', async (req, res) => {
         }
         stats.files = totalFiles;
 
-        // Get active reminders count (both 'Active' and 'pending' for backward compatibility)
+        // Get active reminders count (both 'Active' and 'Pending' for backward compatibility)
         const reminderResult = await query(
-            `SELECT COUNT(*) FROM reminders WHERE (status = 'Active' OR status = 'pending')`,
+            `SELECT COUNT(*) FROM reminders WHERE (status = 'Active' OR status = 'Pending')`,
             []
         );
         stats.activeReminders = parseInt(reminderResult.rows[0].count);
 
-        // Get upcoming reminders (all active/pending reminders ordered by date)
+        // Get upcoming reminders (all active/Pending reminders ordered by date)
         const upcomingResult = await query(
             `SELECT * FROM reminders 
-             WHERE (status = 'Active' OR status = 'pending')
+             WHERE (status = 'Active' OR status = 'Pending')
              ORDER BY reminder_date ASC 
              LIMIT 5`,
             []

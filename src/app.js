@@ -170,7 +170,7 @@ class DataManager {
 
             // Separate into overdue and upcoming (accept both 'Active' and 'pending')
             const now = new Date();
-            const activeItems = items.filter(r => r.status === 'Active' || r.status === 'pending');
+            const activeItems = items.filter(r => r.status === 'Active' || r.status === 'Pending');
             const overdue = activeItems.filter(r => new Date(r.reminder_date) < now);
             const upcoming = activeItems.filter(r => new Date(r.reminder_date) >= now);
 
@@ -3440,7 +3440,11 @@ class DataManager {
                     await this.apiRequest(`/api/${this.currentTable}/${recordId}`, 'DELETE');
 
                     // Also delete associated files
-                    await this.deleteAssociatedFiles(recordId);
+                    if (this.currentTable === 'reminders') {
+                        await this.deleteReminderFiles(recordId);
+                    } else {
+                        await this.deleteAssociatedFiles(recordId);
+                    }
 
                     this.showToast('Record deleted successfully', 'success');
                     this.loadTable(this.currentTable);
@@ -3469,6 +3473,26 @@ class DataManager {
             }
         } catch (error) {
             console.error('Error deleting associated files:', error);
+        }
+    }
+
+    async deleteReminderFiles(recordId) {
+        try {
+            // Get reminder files using the reminder-specific endpoint
+            const filesResult = await this.apiRequest(`/api/reminders/${recordId}/files`);
+
+            if (filesResult && filesResult.length > 0) {
+                for (const file of filesResult) {
+                    try {
+                        // Delete each file using the reminder files endpoint
+                        await this.apiRequest(`/api/reminders/files/${file.id}`, 'DELETE');
+                    } catch (error) {
+                        console.error(`Error deleting reminder file ${file.id}:`, error);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error deleting reminder files:', error);
         }
     }
 

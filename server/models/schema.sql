@@ -303,7 +303,7 @@ CREATE TABLE reminders (
     reminder_date TIMESTAMP WITH TIME ZONE,
     reminder_type VARCHAR(50) CHECK (reminder_type IN ('General', 'Payment', 'Renewal', 'Meeting', 'Important')),
     priority VARCHAR(20) CHECK (priority IN ('Low', 'Medium', 'High', 'Urgent')),
-    status VARCHAR(20) CHECK (status IN ('Active', 'Completed', 'Cancelled')),
+    status VARCHAR(20) CHECK (status IN ('Active', 'Pending', 'Completed', 'Cancelled')),
     related_table VARCHAR(50),
     related_record_id INTEGER,
     notification_sent BOOLEAN DEFAULT false,
