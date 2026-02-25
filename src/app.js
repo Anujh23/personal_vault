@@ -555,6 +555,27 @@ class DataManager {
                     { name: 'files', label: 'Attachments', type: 'file', multiple: true, accept: 'image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt' }
                 ]
             },
+
+            cards: {
+                name: "Cards",
+                icon: "💳",
+                fields: [
+                    { name: 'family_member_id', label: 'Card Owner', type: 'select', options: [], required: true },
+                    { name: 'card_type', label: 'Card Type', type: 'select', options: ['Credit', 'Debit', 'Prepaid', 'Forex'], required: true },
+                    { name: 'card_network', label: 'Card Network', type: 'select', options: ['Visa', 'MasterCard', 'Amex', 'Rupay', 'Diners Club'] },
+                    { name: 'bank_name', label: 'Bank Name', type: 'text', required: true },
+                    { name: 'card_holder_name', label: 'Card Holder Name', type: 'text', required: true },
+                    { name: 'card_number', label: 'Card Number', type: 'text', required: true },
+                    { name: 'expiry_date', label: 'Expiry Date', type: 'date', required: true },
+                    { name: 'cvv', label: 'CVV', type: 'password' },
+                    { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Blocked', 'Expired', 'Lost', 'Stolen'] },
+                    { name: 'daily_limit', label: 'Daily Limit', type: 'number' },
+                    { name: 'bill_generation_date', label: 'Bill Generation Date (Day)', type: 'number', min: 1, max: 31 },
+                    { name: 'payment_due_date', label: 'Payment Due Date (Day)', type: 'number', min: 1, max: 31 },
+                    { name: 'notes', label: 'Notes', type: 'textarea' },
+                    { name: 'files', label: 'Card Images/Files', type: 'file', multiple: true, accept: 'image/*,.pdf' }
+                ]
+            }
         };
     }
 
@@ -570,7 +591,8 @@ class DataManager {
             loans: [],
             income_sheet: [],
             business_info: [],
-            reminders: []
+            reminders: [],
+            cards: []
         };
     }
 

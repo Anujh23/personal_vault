@@ -7,7 +7,7 @@ const { authenticateToken } = require('../middleware/auth');
 const VALID_TABLES = [
     'personal_info', 'family_members', 'shareholdings', 'properties',
     'assets', 'banking_details', 'stocks', 'policies', 'business_info',
-    'loans', 'income_sheet', 'reminders'
+    'loans', 'income_sheet', 'reminders', 'cards'
 ];
 
 const isValidTable = (table) => VALID_TABLES.includes(table);

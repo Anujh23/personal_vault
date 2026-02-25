@@ -57,6 +57,10 @@ const tableConfig = {
     reminders: {
         columns: ['title', 'description', 'reminder_date', 'reminder_type', 'priority', 'status', 'related_table', 'related_record_id', 'notification_sent', 'repeat_type', 'repeat_interval'],
         required: ['title']
+    },
+    cards: {
+        columns: ['family_member_id', 'card_type', 'card_network', 'bank_name', 'card_holder_name', 'card_number', 'expiry_date', 'cvv', 'status', 'daily_limit', 'bill_generation_date', 'payment_due_date', 'notes'],
+        required: ['family_member_id', 'card_type', 'bank_name', 'card_holder_name', 'card_number', 'expiry_date']
     }
 };
 
