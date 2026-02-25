@@ -1893,7 +1893,12 @@ class DataManager {
                     ${displayFields.map(field => {
                     let value = record[field.name] || '';
 
-                    if (field.type === 'date' && value) {
+                    // Show family member name instead of ID
+                    if (field.name === 'family_member_id' && value) {
+                        const members = this.getCachedTableData('family_members') || [];
+                        const member = members.find(m => m.id == value);
+                        value = member ? `${member.name} (${member.relationship || 'Family'})` : `ID: ${value}`;
+                    } else if (field.type === 'date' && value) {
                         value = new Date(value).toLocaleDateString();
                     } else if (field.type === 'datetime-local' && value) {
                         value = new Date(value).toLocaleString();
@@ -2501,21 +2506,23 @@ class DataManager {
             banking: [],
             stocks: [],
             shareholdings: [],
-            loans: []
+            loans: [],
+            cards: []
         };
 
         if (!memberId && !memberName) return linkedData;
 
         try {
             // Fetch all tables data in parallel
-            const [properties, policies, assets, banking, stocks, shareholdings, loans] = await Promise.all([
+            const [properties, policies, assets, banking, stocks, shareholdings, loans, cards] = await Promise.all([
                 this.getTableData('properties'),
                 this.getTableData('policies'),
                 this.getTableData('assets'),
                 this.getTableData('banking_details'),
                 this.getTableData('stocks'),
                 this.getTableData('shareholdings'),
-                this.getTableData('loans')
+                this.getTableData('loans'),
+                this.getTableData('cards')
             ]);
 
             // Filter by name match (case insensitive)
@@ -2582,6 +2589,13 @@ class DataManager {
                 );
             });
 
+            linkedData.cards = (cards || []).filter(c => {
+                if (c.family_member_id && normalizedMemberId) return String(c.family_member_id) === normalizedMemberId;
+                return normalizedName && (
+                    (c.card_holder_name || '').toLowerCase().includes(normalizedName)
+                );
+            });
+
             console.log('🔗 Linked data found:', {
                 properties: linkedData.properties.length,
                 policies: linkedData.policies.length,
@@ -2589,7 +2603,8 @@ class DataManager {
                 banking: linkedData.banking.length,
                 stocks: linkedData.stocks.length,
                 shareholdings: linkedData.shareholdings.length,
-                loans: linkedData.loans.length
+                loans: linkedData.loans.length,
+                cards: linkedData.cards.length
             });
 
         } catch (error) {
@@ -2668,6 +2683,32 @@ class DataManager {
             `);
         }
 
+        // Cards Section
+        if (linkedData.cards && linkedData.cards.length > 0) {
+            sections.push(`
+                <div class="details-section linked-section">
+                    <h4>💳 Cards (${linkedData.cards.length})</h4>
+                    <div class="linked-items">
+                        ${linkedData.cards.map(c => `
+                            <div class="linked-item" onclick="app.viewRecordByType('cards', '${c.id}')" style="cursor: pointer;">
+                                <div class="linked-item-header">
+                                    <span class="linked-item-title">${c.card_type || 'Card'} - ${c.card_network || 'Unknown'}</span>
+                                    <span class="linked-item-badge ${c.status?.toLowerCase()}">${c.status || 'Active'}</span>
+                                </div>
+                                <div class="linked-item-details">
+                                    ${c.bank_name ? `<span class="linked-item-bank">🏦 ${c.bank_name}</span>` : ''}
+                                    ${c.card_holder_name ? `<span class="linked-item-holder">👤 ${c.card_holder_name}</span>` : ''}
+                                    ${c.card_number ? `<span class="linked-item-number">🔢 ${c.card_number}</span>` : ''}
+                                    ${c.expiry_date ? `<span class="linked-item-expiry">📅 Exp: ${new Date(c.expiry_date).toLocaleDateString()}</span>` : ''}
+                                    ${c.daily_limit ? `<span class="linked-item-limit">💳 Limit: ₹${this.formatCurrency(c.daily_limit)}</span>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `);
+        }
+
         // Summary section if any linked data exists
         const totalItems = Object.values(linkedData).reduce((sum, arr) => sum + (arr?.length || 0), 0);
         if (totalItems > 0) {
@@ -2682,6 +2723,7 @@ class DataManager {
                         ${linkedData.stocks.length ? `<div class="summary-stat"><span class="stat-count">${linkedData.stocks.length}</span><span class="stat-label">Investments</span></div>` : ''}
                         ${linkedData.shareholdings.length ? `<div class="summary-stat"><span class="stat-count">${linkedData.shareholdings.length}</span><span class="stat-label">Shareholdings</span></div>` : ''}
                         ${linkedData.loans.length ? `<div class="summary-stat"><span class="stat-count">${linkedData.loans.length}</span><span class="stat-label">Loans</span></div>` : ''}
+                        ${linkedData.cards.length ? `<div class="summary-stat"><span class="stat-count">${linkedData.cards.length}</span><span class="stat-label">Cards</span></div>` : ''}
                     </div>
                 </div>
             `);

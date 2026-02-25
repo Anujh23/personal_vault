@@ -54,10 +54,6 @@ const tableConfig = {
         columns: ['family_member_id', 'business_name', 'business_type', 'registration_number', 'gst_number', 'pan_number', 'owner_name', 'business_address', 'contact_number', 'email', 'website', 'established_date', 'industry', 'annual_revenue', 'employee_count', 'bank_account', 'ifsc_code', 'license_numbers', 'tax_registration_details', 'business_description'],
         required: ['business_name']
     },
-    reminders: {
-        columns: ['title', 'description', 'reminder_date', 'reminder_type', 'priority', 'status', 'related_table', 'related_record_id', 'notification_sent', 'repeat_type', 'repeat_interval'],
-        required: ['title']
-    },
     cards: {
         columns: ['family_member_id', 'card_type', 'card_network', 'bank_name', 'card_holder_name', 'card_number', 'expiry_date', 'cvv', 'status', 'daily_limit', 'bill_generation_date', 'payment_due_date', 'notes'],
         required: ['family_member_id', 'card_type', 'bank_name', 'card_holder_name', 'card_number', 'expiry_date']
@@ -131,6 +127,10 @@ router.get('/dashboard/stats', async (req, res) => {
             );
             stats[table] = parseInt(result.rows[0].count);
         }
+
+        // Add reminders count manually (not in tableConfig since it has its own routes)
+        const remindersCount = await query(`SELECT COUNT(*) FROM reminders`, []);
+        stats.reminders = parseInt(remindersCount.rows[0].count);
 
         // Get file count from all entity tables (files stored in JSONB columns)
         let totalFiles = 0;
