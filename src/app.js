@@ -555,19 +555,6 @@ class DataManager {
                     { name: 'files', label: 'Attachments', type: 'file', multiple: true, accept: 'image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt' }
                 ]
             },
-
-            files: {
-                name: "Files & Documents",
-                icon: "📁",
-                fields: [
-                    { name: 'record_id', label: 'Record ID', type: 'number', required: true },
-                    { name: 'record_type', label: 'Record Type', type: 'select', options: ['personal_info', 'properties', 'assets', 'banking_details', 'policies', 'stocks', 'business_info', 'family_members'], required: true },
-                    { name: 'file_name', label: 'File Name', type: 'text', required: true },
-                    { name: 'file_path', label: 'File Path', type: 'text', required: true },
-                    { name: 'file_size', label: 'File Size', type: 'number' },
-                    { name: 'mime_type', label: 'File Type', type: 'text' }
-                ]
-            }
         };
     }
 
@@ -583,7 +570,6 @@ class DataManager {
             loans: [],
             income_sheet: [],
             business_info: [],
-            files: [],
             reminders: []
         };
     }
