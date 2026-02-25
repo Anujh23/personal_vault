@@ -546,7 +546,7 @@ class DataManager {
                     { name: 'reminder_date', label: 'Reminder Date & Time', type: 'datetime-local' },
                     { name: 'reminder_type', label: 'Reminder Type', type: 'select', options: ['General', 'Payment', 'Renewal', 'Meeting', 'Important'] },
                     { name: 'priority', label: 'Priority', type: 'select', options: ['Low', 'Medium', 'High', 'Urgent'] },
-                    { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Completed', 'Cancelled'] },
+                    { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Pending', 'Completed', 'Cancelled'] },
                     { name: 'related_table', label: 'Related Table', type: 'select', options: ['', 'properties', 'assets', 'banking_details', 'policies', 'stocks', 'business_info'] },
                     { name: 'related_record_id', label: 'Related Record ID', type: 'number' },
                     { name: 'notification_sent', label: 'Notification Sent', type: 'select', options: ['No', 'Yes'] },

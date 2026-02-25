@@ -38,6 +38,32 @@ const upload = multer({
     }
 });
 
+// Get all reminders
+router.get('/', authenticateToken, async (req, res) => {
+    try {
+        const queryStr = `
+            SELECT r.*, 
+                   COALESCE(json_agg(json_build_object(
+                       'id', rf.id,
+                       'filename', rf.filename,
+                       'original_name', rf.original_name,
+                       'file_size', rf.file_size,
+                       'mime_type', rf.mime_type,
+                       'uploaded_at', rf.uploaded_at
+                   )) FILTER (WHERE rf.id IS NOT NULL), '[]') as files
+            FROM reminders r
+            LEFT JOIN reminder_files rf ON r.id = rf.reminder_id
+            GROUP BY r.id
+            ORDER BY r.reminder_date ASC
+        `;
+        const { rows } = await query(queryStr);
+        res.json({ data: rows });
+    } catch (error) {
+        console.error('Error fetching reminders:', error);
+        res.status(500).json({ error: 'Failed to fetch reminders' });
+    }
+});
+
 // Get due reminders (for notification system)
 router.get('/due', authenticateToken, async (req, res) => {
     try {
