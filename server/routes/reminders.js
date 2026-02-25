@@ -64,6 +64,124 @@ router.get('/', authenticateToken, async (req, res) => {
     }
 });
 
+// Create new reminder
+router.post('/', authenticateToken, async (req, res) => {
+    try {
+        const { title, description, reminder_date, reminder_type, priority, status, related_table, related_record_id, repeat_type, repeat_interval } = req.body;
+
+        if (!title) {
+            return res.status(400).json({ error: 'Title is required' });
+        }
+
+        const queryStr = `
+            INSERT INTO reminders (
+                user_id, title, description, reminder_date, reminder_type, 
+                priority, status, related_table, related_record_id, 
+                repeat_type, repeat_interval
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            RETURNING *
+        `;
+
+        const { rows } = await query(queryStr, [
+            req.user.id,
+            title,
+            description || null,
+            reminder_date || null,
+            reminder_type || 'General',
+            priority || 'Medium',
+            status || 'Pending',
+            related_table || null,
+            related_record_id || null,
+            repeat_type || 'None',
+            repeat_interval || null
+        ]);
+
+        res.status(201).json({
+            success: true,
+            data: rows[0]
+        });
+    } catch (error) {
+        console.error('Error creating reminder:', error);
+        res.status(500).json({ error: 'Failed to create reminder' });
+    }
+});
+
+// Update reminder
+router.put('/:id', authenticateToken, async (req, res) => {
+    try {
+        const { title, description, reminder_date, reminder_type, priority, status, related_table, related_record_id, repeat_type, repeat_interval } = req.body;
+
+        const queryStr = `
+            UPDATE reminders 
+            SET title = $2,
+                description = $3,
+                reminder_date = $4,
+                reminder_type = $5,
+                priority = $6,
+                status = $7,
+                related_table = $8,
+                related_record_id = $9,
+                repeat_type = $10,
+                repeat_interval = $11,
+                updated_at = NOW()
+            WHERE id = $1
+            RETURNING *
+        `;
+
+        const { rows } = await query(queryStr, [
+            req.params.id,
+            title,
+            description || null,
+            reminder_date || null,
+            reminder_type || 'General',
+            priority || 'Medium',
+            status || 'Pending',
+            related_table || null,
+            related_record_id || null,
+            repeat_type || 'None',
+            repeat_interval || null
+        ]);
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Reminder not found' });
+        }
+
+        res.json({
+            success: true,
+            data: rows[0]
+        });
+    } catch (error) {
+        console.error('Error updating reminder:', error);
+        res.status(500).json({ error: 'Failed to update reminder' });
+    }
+});
+
+// Delete reminder
+router.delete('/:id', authenticateToken, async (req, res) => {
+    try {
+        // Delete associated files first
+        await query('DELETE FROM reminder_files WHERE reminder_id = $1', [req.params.id]);
+
+        // Delete reminder
+        const { rows } = await query(
+            'DELETE FROM reminders WHERE id = $1 RETURNING id',
+            [req.params.id]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Reminder not found' });
+        }
+
+        res.json({
+            success: true,
+            message: 'Reminder deleted successfully'
+        });
+    } catch (error) {
+        console.error('Error deleting reminder:', error);
+        res.status(500).json({ error: 'Failed to delete reminder' });
+    }
+});
+
 // Get due reminders (for notification system)
 router.get('/due', authenticateToken, async (req, res) => {
     try {
