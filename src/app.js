@@ -1629,6 +1629,10 @@ class DataManager {
                 { name: 'category', label: 'Category' }
             ];
             headers = ['Date', 'Narration', 'Type', 'Amount', 'Category', 'Files', 'Actions'];
+        } else if (tableName === 'cards') {
+            // Specialized headers for Cards - no ID column
+            displayFields = table.fields.slice(0); // Show all fields
+            headers = [...displayFields.map(f => f.label), 'Files', 'Actions'];
         } else {
             displayFields = table.fields.slice(0); // Show all fields in table
             headers = ['ID', ...displayFields.map(f => f.label), 'Files', 'Actions'];
@@ -1923,6 +1927,45 @@ class DataManager {
 
                 // Load file count for this record
                 this.loadRecordFiles(this.currentTable, record.id);
+            } else if (this.currentTable === 'cards') {
+                // Cards rendering - no ID column
+                const displayFields = this.currentDisplayFields || [];
+
+                row.innerHTML = `
+                    ${displayFields.map(field => {
+                    let value = record[field.name] || '';
+
+                    // Show family member name instead of ID
+                    if (field.name === 'family_member_id' && value) {
+                        const member = familyMembers.find(m => m.id == value);
+                        value = member ? `${member.name} (${member.relationship || 'Family'})` : `ID: ${value}`;
+                    } else if (field.type === 'date' && value) {
+                        value = new Date(value).toLocaleDateString();
+                    } else if (field.type === 'datetime-local' && value) {
+                        value = new Date(value).toLocaleString();
+                    } else if (typeof value === 'number') {
+                        if (field.step === '0.01') {
+                            value = '₹' + value.toLocaleString();
+                        }
+                    }
+
+                    return `<td title="${value}"><span class="cell-content">${this.truncateText(value, 40)}</span></td>`;
+                }).join('')}
+                    <td class="files-cell">
+                        <div class="file-actions" id="files-${record.id}">
+                            <button class="file-btn upload" onclick="app.uploadFileToRecord('${this.currentTable}', '${record.id}')" title="Upload File">📎</button>
+                            <button class="file-btn view" onclick="app.viewFilesForRecord('${this.currentTable}', '${record.id}')" title="View Files">📁</button>
+                            <span class="file-count" id="file-count-${record.id}" style="display:none">0</span>
+                        </div>
+                    </td>
+                    <td class="actions-cell">
+                        <div class="action-buttons">
+                            <button class="action-btn-small view-btn" onclick="app.viewRecord('${record.id}')" title="View Details">👁️</button>
+                            <button class="action-btn-small edit-btn" onclick="app.editRecord('${record.id}')" title="Edit Record">✏️</button>
+                            <button class="action-btn-small delete-btn" onclick="app.deleteRecord('${record.id}')" title="Delete Record">🗑️</button>
+                        </div>
+                    </td>
+                `;
             } else {
                 // Standard rendering for all other tables (personal_info, family_members, etc.)
                 const displayFields = this.currentDisplayFields || [];
