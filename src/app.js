@@ -1602,7 +1602,7 @@ class DataManager {
             ];
             headers = ['Date', 'Narration', 'Type', 'Amount', 'Category', 'Files', 'Actions'];
         } else {
-            displayFields = table.fields.slice(0, 6); // Show first 6 fields in table
+            displayFields = table.fields.slice(0); // Show all fields in table
             headers = ['ID', ...displayFields.map(f => f.label), 'Files', 'Actions'];
         }
 
@@ -2523,17 +2523,24 @@ class DataManager {
         if (!memberId && !memberName) return linkedData;
 
         try {
-            // Fetch all tables data in parallel
-            const [properties, policies, assets, banking, stocks, shareholdings, loans, cards] = await Promise.all([
-                this.getTableData('properties'),
-                this.getTableData('policies'),
-                this.getTableData('assets'),
-                this.getTableData('banking_details'),
-                this.getTableData('stocks'),
-                this.getTableData('shareholdings'),
-                this.getTableData('loans'),
-                this.getTableData('cards')
-            ]);
+            // Fetch tables sequentially with delays to avoid rate limiting
+            const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+            
+            const properties = await this.getTableData('properties');
+            await delay(100);
+            const policies = await this.getTableData('policies');
+            await delay(100);
+            const assets = await this.getTableData('assets');
+            await delay(100);
+            const banking = await this.getTableData('banking_details');
+            await delay(100);
+            const stocks = await this.getTableData('stocks');
+            await delay(100);
+            const shareholdings = await this.getTableData('shareholdings');
+            await delay(100);
+            const loans = await this.getTableData('loans');
+            await delay(100);
+            const cards = await this.getTableData('cards');
 
             // Filter by name match (case insensitive)
             const normalizedName = (memberName || '').toLowerCase().trim();
@@ -2636,14 +2643,26 @@ class DataManager {
 
     // NEW: Render linked data sections
     renderLinkedDataSections(linkedData) {
+        console.log('🎨 Rendering linked data sections:', linkedData);
         const sections = [];
+
+        // Count total items for debugging
+        const counts = {
+            properties: linkedData.properties?.length || 0,
+            policies: linkedData.policies?.length || 0,
+            assets: linkedData.assets?.length || 0,
+            banking: linkedData.banking?.length || 0,
+            loans: linkedData.loans?.length || 0,
+            cards: linkedData.cards?.length || 0
+        };
+        console.log('📊 Linked data counts:', counts);
 
         // Properties Section
         if (linkedData.properties && linkedData.properties.length > 0) {
             const totalValue = linkedData.properties.reduce((sum, p) => sum + (parseFloat(p.property_value) || 0), 0);
             sections.push(`
                 <div class="details-section linked-section">
-                    <h4>🏦� Properties (${linkedData.properties.length})</h4>
+                    <h4>🏦 Properties (${linkedData.properties.length})</h4>
                     <div class="linked-items">
                         ${linkedData.properties.map(p => `
                             <div class="linked-item" onclick="app.viewRecordByType('properties', '${p.id}')" style="cursor: pointer;">
@@ -2726,14 +2745,14 @@ class DataManager {
                 <div class="details-section summary-section-highlight">
                     <h4>📊 Assets Summary</h4>
                     <div class="summary-grid">
-                        ${linkedData.properties.length ? `<div class="summary-stat"><span class="stat-count">${linkedData.properties.length}</span><span class="stat-label">Properties</span></div>` : ''}
-                        ${linkedData.policies.length ? `<div class="summary-stat"><span class="stat-count">${linkedData.policies.length}</span><span class="stat-label">Policies</span></div>` : ''}
-                        ${linkedData.assets.length ? `<div class="summary-stat"><span class="stat-count">${linkedData.assets.length}</span><span class="stat-label">Assets</span></div>` : ''}
-                        ${linkedData.banking.length ? `<div class="summary-stat"><span class="stat-count">${linkedData.banking.length}</span><span class="stat-label">Bank Accounts</span></div>` : ''}
-                        ${linkedData.stocks.length ? `<div class="summary-stat"><span class="stat-count">${linkedData.stocks.length}</span><span class="stat-label">Investments</span></div>` : ''}
-                        ${linkedData.shareholdings.length ? `<div class="summary-stat"><span class="stat-count">${linkedData.shareholdings.length}</span><span class="stat-label">Shareholdings</span></div>` : ''}
-                        ${linkedData.loans.length ? `<div class="summary-stat"><span class="stat-count">${linkedData.loans.length}</span><span class="stat-label">Loans</span></div>` : ''}
-                        ${linkedData.cards.length ? `<div class="summary-stat"><span class="stat-count">${linkedData.cards.length}</span><span class="stat-label">Cards</span></div>` : ''}
+                        ${linkedData.properties.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('properties')" style="cursor: pointer;" title="View Properties"><span class="stat-count">${linkedData.properties.length}</span><span class="stat-label">Properties</span></div>` : ''}
+                        ${linkedData.policies.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('policies')" style="cursor: pointer;" title="View Policies"><span class="stat-count">${linkedData.policies.length}</span><span class="stat-label">Policies</span></div>` : ''}
+                        ${linkedData.assets.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('assets')" style="cursor: pointer;" title="View Assets"><span class="stat-count">${linkedData.assets.length}</span><span class="stat-label">Assets</span></div>` : ''}
+                        ${linkedData.banking.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('banking_details')" style="cursor: pointer;" title="View Bank Accounts"><span class="stat-count">${linkedData.banking.length}</span><span class="stat-label">Bank Accounts</span></div>` : ''}
+                        ${linkedData.stocks.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('stocks')" style="cursor: pointer;" title="View Investments"><span class="stat-count">${linkedData.stocks.length}</span><span class="stat-label">Investments</span></div>` : ''}
+                        ${linkedData.shareholdings.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('shareholdings')" style="cursor: pointer;" title="View Shareholdings"><span class="stat-count">${linkedData.shareholdings.length}</span><span class="stat-label">Shareholdings</span></div>` : ''}
+                        ${linkedData.loans.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('loans')" style="cursor: pointer;" title="View Loans"><span class="stat-count">${linkedData.loans.length}</span><span class="stat-label">Loans</span></div>` : ''}
+                        ${linkedData.cards.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('cards')" style="cursor: pointer;" title="View Cards"><span class="stat-count">${linkedData.cards.length}</span><span class="stat-label">Cards</span></div>` : ''}
                     </div>
                 </div>
             `);
@@ -2749,11 +2768,15 @@ class DataManager {
             `);
         }
 
-        return sections.join('');
+        console.log('✅ Generated sections count:', sections.length);
+        const html = sections.join('');
+        console.log('📝 Generated HTML length:', html.length);
+        return html;
     }
 
     // NEW: View record by type (helper for linked items)
     viewRecordByType(tableName, recordId) {
+        alert(`Clicked: ${tableName} ID: ${recordId}`); // Debug alert
         console.log('👁️ Viewing record:', tableName, recordId);
         this.showSection(tableName);
         setTimeout(() => this.viewRecord(recordId), 100);
