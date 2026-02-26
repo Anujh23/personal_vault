@@ -1401,9 +1401,15 @@ class DataManager {
         });
     }
 
-    showSection(sectionName) {
-        console.log('📌 Showing section:', sectionName);
+    showSection(sectionName, options = {}) {
+        console.log('📌 Showing section:', sectionName, options);
         this.currentSection = sectionName;
+        
+        // Store pending member filter if provided
+        if (options.memberFilter) {
+            this._pendingMemberFilter = options.memberFilter;
+            console.log('🔍 Pending member filter set:', options.memberFilter);
+        }
 
         // Update navigation active state
         document.querySelectorAll('.nav-link').forEach(link => {
@@ -1533,6 +1539,28 @@ class DataManager {
             this.filteredData = Array.isArray(data) ? [...data] : [];
             this._originalTableData = [...this.filteredData]; // Store original for filter reset
             this.currentPage = 1;
+            
+            // Apply pending member filter if set
+            if (this._pendingMemberFilter) {
+                console.log('🔍 Applying member filter:', this._pendingMemberFilter);
+                const normalizedFilter = this._pendingMemberFilter.toLowerCase().trim();
+                this.filteredData = this.filteredData.filter(record => {
+                    // Check family_member_id or any name-related fields
+                    if (record.family_member_id) {
+                        // Try to match by family member name (we'll check this below)
+                    }
+                    // Check all string fields for the name
+                    return Object.values(record).some(value => {
+                        if (typeof value === 'string') {
+                            return value.toLowerCase().includes(normalizedFilter);
+                        }
+                        return false;
+                    });
+                });
+                // Clear the pending filter after applying
+                this._pendingMemberFilter = null;
+                console.log(`✅ Filtered to ${this.filteredData.length} records for member`);
+            }
 
             // Update table header
             const tableTitle = document.getElementById('tableTitle');
@@ -2445,7 +2473,7 @@ class DataManager {
                         </div>
                         ` : ''}
                         
-                        ${this.renderLinkedDataSections(linkedData)}
+                        ${this.renderLinkedDataSections(linkedData, member.name)}
                     </div>
                     
                     <div class="member-details-actions">
@@ -2642,8 +2670,8 @@ class DataManager {
     }
 
     // NEW: Render linked data sections
-    renderLinkedDataSections(linkedData) {
-        console.log('🎨 Rendering linked data sections:', linkedData);
+    renderLinkedDataSections(linkedData, memberName) {
+        console.log('🎨 Rendering linked data sections for:', memberName, linkedData);
         const sections = [];
 
         // Count total items for debugging
@@ -2745,14 +2773,14 @@ class DataManager {
                 <div class="details-section summary-section-highlight">
                     <h4>📊 Assets Summary</h4>
                     <div class="summary-grid">
-                        ${linkedData.properties.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('properties')" style="cursor: pointer;" title="View Properties"><span class="stat-count">${linkedData.properties.length}</span><span class="stat-label">Properties</span></div>` : ''}
-                        ${linkedData.policies.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('policies')" style="cursor: pointer;" title="View Policies"><span class="stat-count">${linkedData.policies.length}</span><span class="stat-label">Policies</span></div>` : ''}
-                        ${linkedData.assets.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('assets')" style="cursor: pointer;" title="View Assets"><span class="stat-count">${linkedData.assets.length}</span><span class="stat-label">Assets</span></div>` : ''}
-                        ${linkedData.banking.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('banking_details')" style="cursor: pointer;" title="View Bank Accounts"><span class="stat-count">${linkedData.banking.length}</span><span class="stat-label">Bank Accounts</span></div>` : ''}
-                        ${linkedData.stocks.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('stocks')" style="cursor: pointer;" title="View Investments"><span class="stat-count">${linkedData.stocks.length}</span><span class="stat-label">Investments</span></div>` : ''}
-                        ${linkedData.shareholdings.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('shareholdings')" style="cursor: pointer;" title="View Shareholdings"><span class="stat-count">${linkedData.shareholdings.length}</span><span class="stat-label">Shareholdings</span></div>` : ''}
-                        ${linkedData.loans.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('loans')" style="cursor: pointer;" title="View Loans"><span class="stat-count">${linkedData.loans.length}</span><span class="stat-label">Loans</span></div>` : ''}
-                        ${linkedData.cards.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSection('cards')" style="cursor: pointer;" title="View Cards"><span class="stat-count">${linkedData.cards.length}</span><span class="stat-label">Cards</span></div>` : ''}
+                        ${linkedData.properties.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSectionWithMemberFilter('properties', '${memberName}')" style="cursor: pointer;" title="View ${memberName}'s Properties"><span class="stat-count">${linkedData.properties.length}</span><span class="stat-label">Properties</span></div>` : ''}
+                        ${linkedData.policies.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSectionWithMemberFilter('policies', '${memberName}')" style="cursor: pointer;" title="View ${memberName}'s Policies"><span class="stat-count">${linkedData.policies.length}</span><span class="stat-label">Policies</span></div>` : ''}
+                        ${linkedData.assets.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSectionWithMemberFilter('assets', '${memberName}')" style="cursor: pointer;" title="View ${memberName}'s Assets"><span class="stat-count">${linkedData.assets.length}</span><span class="stat-label">Assets</span></div>` : ''}
+                        ${linkedData.banking.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSectionWithMemberFilter('banking_details', '${memberName}')" style="cursor: pointer;" title="View ${memberName}'s Bank Accounts"><span class="stat-count">${linkedData.banking.length}</span><span class="stat-label">Bank Accounts</span></div>` : ''}
+                        ${linkedData.stocks.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSectionWithMemberFilter('stocks', '${memberName}')" style="cursor: pointer;" title="View ${memberName}'s Investments"><span class="stat-count">${linkedData.stocks.length}</span><span class="stat-label">Investments</span></div>` : ''}
+                        ${linkedData.shareholdings.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSectionWithMemberFilter('shareholdings', '${memberName}')" style="cursor: pointer;" title="View ${memberName}'s Shareholdings"><span class="stat-count">${linkedData.shareholdings.length}</span><span class="stat-label">Shareholdings</span></div>` : ''}
+                        ${linkedData.loans.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSectionWithMemberFilter('loans', '${memberName}')" style="cursor: pointer;" title="View ${memberName}'s Loans"><span class="stat-count">${linkedData.loans.length}</span><span class="stat-label">Loans</span></div>` : ''}
+                        ${linkedData.cards.length ? `<div class="summary-stat clickable" onclick="app.closeFamilyDetailsModal(); app.showSectionWithMemberFilter('cards', '${memberName}')" style="cursor: pointer;" title="View ${memberName}'s Cards"><span class="stat-count">${linkedData.cards.length}</span><span class="stat-label">Cards</span></div>` : ''}
                     </div>
                 </div>
             `);
@@ -2772,6 +2800,12 @@ class DataManager {
         const html = sections.join('');
         console.log('📝 Generated HTML length:', html.length);
         return html;
+    }
+
+    // Helper: Show section with member filter (for inline onclick handlers)
+    showSectionWithMemberFilter(sectionName, memberName) {
+        console.log('📌 Showing section with member filter:', sectionName, memberName);
+        this.showSection(sectionName, { memberFilter: memberName });
     }
 
     // NEW: View record by type (helper for linked items)
