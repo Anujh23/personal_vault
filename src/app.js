@@ -1544,7 +1544,7 @@ class DataManager {
             this.createTableHeaders(table, tableName);
 
             // Load table data
-            this.renderTableData();
+            await this.renderTableData();
 
             // Show/hide empty state
             this.toggleEmptyState(this.filteredData.length === 0);
@@ -1765,7 +1765,7 @@ class DataManager {
     }
 
     // NEW: Apply all active filters
-    applyAllFilters() {
+    async applyAllFilters() {
         // Use original data as the base
         const originalData = this._originalTableData || this.filteredData || [];
 
@@ -1779,11 +1779,11 @@ class DataManager {
 
         this.filteredData = filtered;
         this.currentPage = 1;
-        this.renderTableData();
+        await this.renderTableData();
         this.updatePagination();
     }
 
-    renderTableData() {
+    async renderTableData() {
         const tbody = document.getElementById('tableBody');
         if (!tbody) return;
 
@@ -1806,6 +1806,17 @@ class DataManager {
         }
 
         this.toggleEmptyState(false);
+
+        // Pre-fetch family members if needed for any table
+        let familyMembers = [];
+        const needsFamilyData = this.currentDisplayFields?.some(f => f.name === 'family_member_id');
+        if (needsFamilyData) {
+            try {
+                familyMembers = await this.getTableData('family_members') || [];
+            } catch (e) {
+                console.warn('Failed to load family members:', e);
+            }
+        }
 
         pageData.forEach(record => {
             const row = document.createElement('tr');
@@ -1895,8 +1906,7 @@ class DataManager {
 
                     // Show family member name instead of ID
                     if (field.name === 'family_member_id' && value) {
-                        const members = this.getCachedTableData('family_members') || [];
-                        const member = members.find(m => m.id == value);
+                        const member = familyMembers.find(m => m.id == value);
                         value = member ? `${member.name} (${member.relationship || 'Family'})` : `ID: ${value}`;
                     } else if (field.type === 'date' && value) {
                         value = new Date(value).toLocaleDateString();
@@ -1955,14 +1965,14 @@ class DataManager {
     }
 
     // NEW: Go to specific page
-    goToPage(page) {
+    async goToPage(page) {
         const totalPages = Math.ceil(this.filteredData.length / this.recordsPerPage) || 1;
 
         if (page < 1) page = 1;
         if (page > totalPages) page = totalPages;
 
         this.currentPage = page;
-        this.renderTableData();
+        await this.renderTableData();
     }
 
     // NEW: Toggle empty state visibility
@@ -3842,7 +3852,7 @@ class DataManager {
         }
     }
 
-    filterTable(searchTerm) {
+    async filterTable(searchTerm) {
         if (!this.currentTable) return;
 
         const allData = this.getTableData(this.currentTable);
@@ -3859,7 +3869,7 @@ class DataManager {
         }
 
         this.currentPage = 1;
-        this.renderTableData();
+        await this.renderTableData();
     }
 
     performGlobalSearch(searchTerm) {
