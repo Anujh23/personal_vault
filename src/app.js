@@ -17,7 +17,7 @@ class DataManager {
         this.activityLog = this.loadActivityLog();
 
         // API Configuration - fallback to localhost if not set
-        this.API_BASE_URL = typeof window.API_BASE_URL !== 'undefined' ? window.API_BASE_URL : 'http://localhost:3000';
+        this.API_BASE_URL = (typeof window.API_BASE_URL !== 'undefined' && window.API_BASE_URL) ? window.API_BASE_URL : 'http://localhost:3000';
         window.API_BASE_URL = this.API_BASE_URL;
         console.log('🔌 API Base URL:', this.API_BASE_URL);
 
@@ -4529,14 +4529,14 @@ function showDashboard() {
     }
 
     setTimeout(() => {
-        if (window.app && typeof window.app.logActivity === 'function') {
+        if (window.app && typeof window.app.logActivity === 'function' && dashboardAuth.currentUser) {
             window.app.logActivity(`User ${dashboardAuth.currentUser.username} logged in successfully`);
         }
     }, 1000);
 }
 
 function logout() {
-    if (window.app && typeof window.app.logActivity === 'function') {
+    if (window.app && typeof window.app.logActivity === 'function' && dashboardAuth.currentUser) {
         window.app.logActivity(`User ${dashboardAuth.currentUser.username} logged out`);
     }
 
