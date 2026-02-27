@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 require('dotenv').config({ path: '../.env' });
 
 const path = require('path');
@@ -25,19 +24,6 @@ app.use(cors({
     origin: process.env.FRONTEND_URL || '*',
     credentials: true
 }));
-
-// Rate limiting (skip for static files)
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // limit each IP to 100 requests per windowMs
-    standardHeaders: true,
-    legacyHeaders: false,
-    handler: (req, res) => {
-        res.status(429).json({ error: 'Too many requests. Please slow down.' });
-    }
-});
-app.use('/api', limiter);
-app.use(limiter);
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
