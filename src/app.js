@@ -1,4 +1,4 @@
-﻿// Personal Dashboard - COMPLETE SOLUTION: Premium UI + Working Family Tree + Self Management
+// Personal Dashboard - COMPLETE SOLUTION: Premium UI + Working Family Tree + Self Management
 window.dashboardAuth = window.dashboardAuth || { isLoggedIn: false, currentUser: null, token: null };
 class DataManager {
     constructor() {
@@ -15,6 +15,12 @@ class DataManager {
         this.isEditMode = false;
         this.fileUploadInitialized = false;
         this.activityLog = this.loadActivityLog();
+
+        // Loading overlay management (prevents flicker with multiple API calls)
+        this._loadingCount = 0;
+        this._loadingShownAt = 0;
+        this._loadingMinMs = 250;
+        this._loadingHideTimer = null;
 
         // API Configuration - fallback to localhost if not set
         this.API_BASE_URL = (typeof window.API_BASE_URL !== 'undefined' && window.API_BASE_URL) ? window.API_BASE_URL : 'http://localhost:3000';
@@ -42,7 +48,7 @@ class DataManager {
 
 
     // Helper method for API requests to PostgreSQL
-    async apiRequest(endpoint, method = 'GET', data = null) {
+    async apiRequest(endpoint, method = 'GET', data = null, { showLoader = true } = {}) {
         const url = `${this.API_BASE_URL}${endpoint}`;
         const token = window.dashboardAuth?.token || '';
         const options = {
@@ -57,6 +63,8 @@ class DataManager {
             options.body = JSON.stringify(data);
         }
 
+        if (showLoader) this.beginLoading('Loading');
+
         try {
             const response = await fetch(url, options);
             const rawText = await response.text();
@@ -65,7 +73,7 @@ class DataManager {
                 try {
                     result = JSON.parse(rawText);
                 } catch (e) {
-                    // Some middleware (like rate-limit) may return plain text.
+                    // Some middleware may return plain text.
                     result = { error: rawText };
                 }
             }
@@ -109,6 +117,53 @@ class DataManager {
                 this.showToast(error.message || 'An error occurred', 'error');
             }
             throw error;
+        } finally {
+            if (showLoader) this.endLoading();
+        }
+    }
+
+    setLoadingVisible(visible) {
+        const loadingScreen = document.getElementById('loadingScreen');
+        const appContainer = document.getElementById('appContainer');
+        if (loadingScreen) loadingScreen.style.display = visible ? 'flex' : 'none';
+        if (appContainer) appContainer.classList.toggle('app-blurred', Boolean(visible));
+    }
+
+    beginLoading(text = 'Loading') {
+        if (this._loadingHideTimer) {
+            clearTimeout(this._loadingHideTimer);
+            this._loadingHideTimer = null;
+        }
+
+        this._loadingCount = (this._loadingCount || 0) + 1;
+
+        const loadingTextEl = document.querySelector('#loadingScreen .loading-text');
+        if (loadingTextEl && text) loadingTextEl.textContent = text;
+
+        if (this._loadingCount === 1) {
+            this._loadingShownAt = Date.now();
+            this.setLoadingVisible(true);
+        }
+    }
+
+    endLoading() {
+        this._loadingCount = Math.max(0, (this._loadingCount || 0) - 1);
+        if (this._loadingCount !== 0) return;
+
+        const elapsed = Date.now() - (this._loadingShownAt || 0);
+        const wait = Math.max(0, (this._loadingMinMs || 0) - elapsed);
+
+        this._loadingHideTimer = setTimeout(() => {
+            this.setLoadingVisible(false);
+        }, wait);
+    }
+
+    async withLoading(fn, { text = 'Loading' } = {}) {
+        this.beginLoading(text);
+        try {
+            return await fn();
+        } finally {
+            this.endLoading();
         }
     }
 
@@ -132,14 +187,13 @@ class DataManager {
     init() {
         console.log('🚀 Initializing Premium Personal Dashboard...');
 
-        this.showLoadingScreen();
+        this.beginLoading('Loading');
 
         setTimeout(() => {
             try {
                 this.loadTheme();
                 this.initializeData();
                 this.initializeEventListeners();
-                this.hideLoadingScreen();
                 this.showSection('dashboard');
                 if (window.dashboardAuth?.token) {
                     this.updateDashboardStats();
@@ -151,7 +205,7 @@ class DataManager {
                 console.error('❌ Initialization error:', error);
                 this.showToast('Dashboard loaded with some limitations', 'warning');
             } finally {
-                this.hideLoadingScreen();
+                this.endLoading();
                 this.showSection('dashboard');
             }
         }, 800);
@@ -244,21 +298,14 @@ class DataManager {
     }
 
     showLoadingScreen() {
-        const loadingScreen = document.getElementById('loadingScreen');
-        const appContainer = document.getElementById('appContainer');
-        if (loadingScreen && appContainer) {
-            loadingScreen.style.display = 'flex';
-            appContainer.style.display = 'none';
-        }
+        this.setLoadingVisible(true);
     }
 
     hideLoadingScreen() {
         try {
-            const loadingScreen = document.getElementById('loadingScreen');
             const appContainer = document.getElementById('appContainer');
-            if (loadingScreen && appContainer) {
-                loadingScreen.style.display = 'none';
-                appContainer.style.display = 'flex';
+            this.setLoadingVisible(false);
+            if (appContainer) {
                 console.log('✅ Loading screen hidden successfully');
             } else {
                 console.warn('⚠️ Loading screen or app container not found');
@@ -2400,28 +2447,29 @@ class DataManager {
         console.log('👤 Showing details for family member:', memberId);
 
         try {
-            // Fetch member data from API
-            const result = await this.apiRequest(`/api/family_members/${memberId}`);
-            const member = result.data || result;
+            await this.withLoading(async () => {
+                // Fetch member data from API
+                const result = await this.apiRequest(`/api/family_members/${memberId}`, 'GET', null, { showLoader: false });
+                const member = result.data || result;
 
-            if (!member) {
-                this.showToast('Family member not found', 'error');
-                return;
-            }
+                if (!member) {
+                    this.showToast('Family member not found', 'error');
+                    return;
+                }
 
-            const gender = (member.gender || '').toLowerCase();
-            const relationship = member.relationship || 'Unknown';
-            const age = member.date_of_birth ? this.calculateAge(member.date_of_birth) : 'Unknown';
-            const isAlive = member.is_alive !== 'No';
+                const gender = (member.gender || '').toLowerCase();
+                const relationship = member.relationship || 'Unknown';
+                const age = member.date_of_birth ? this.calculateAge(member.date_of_birth) : 'Unknown';
+                const isAlive = member.is_alive !== 'No';
 
-            const linkedData = await this.fetchLinkedMemberData(member.id, member.name);
+                const linkedData = await this.fetchLinkedMemberData(member.id, member.name, { showLoader: false });
 
-            // Format dates
-            const birthDate = member.date_of_birth ? new Date(member.date_of_birth).toLocaleDateString() : 'Not specified';
-            const deathDate = member.date_of_death ? new Date(member.date_of_death).toLocaleDateString() : null;
+                // Format dates
+                const birthDate = member.date_of_birth ? new Date(member.date_of_birth).toLocaleDateString() : 'Not specified';
+                const deathDate = member.date_of_death ? new Date(member.date_of_death).toLocaleDateString() : null;
 
-            // Create modal content with sections for linked data
-            const modalContent = `
+                // Create modal content with sections for linked data
+                const modalContent = `
                 <div class="family-member-details-modal">
                     <div class="member-details-header">
                         <div class="member-details-avatar ${gender}">
@@ -2526,8 +2574,9 @@ class DataManager {
                 </div>
             `;
 
-            // Create and show modal
-            this.showFamilyDetailsModal(modalContent);
+                // Create and show modal
+                this.showFamilyDetailsModal(modalContent);
+            }, { text: 'Loading' });
 
         } catch (error) {
             console.error('Error loading family member details:', error);
@@ -2577,7 +2626,7 @@ class DataManager {
     }
 
     // NEW: Fetch linked data for family member
-    async fetchLinkedMemberData(memberId, memberName) {
+    async fetchLinkedMemberData(memberId, memberName, { showLoader = true } = {}) {
         console.log('🔗 Fetching linked data for:', memberName);
 
         const linkedData = {
@@ -2597,21 +2646,21 @@ class DataManager {
             // Fetch tables sequentially with delays to avoid rate limiting
             const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
             
-            const properties = await this.getTableData('properties');
+            const properties = await this.getTableData('properties', { showLoader });
             await delay(100);
-            const policies = await this.getTableData('policies');
+            const policies = await this.getTableData('policies', { showLoader });
             await delay(100);
-            const assets = await this.getTableData('assets');
+            const assets = await this.getTableData('assets', { showLoader });
             await delay(100);
-            const banking = await this.getTableData('banking_details');
+            const banking = await this.getTableData('banking_details', { showLoader });
             await delay(100);
-            const stocks = await this.getTableData('stocks');
+            const stocks = await this.getTableData('stocks', { showLoader });
             await delay(100);
-            const shareholdings = await this.getTableData('shareholdings');
+            const shareholdings = await this.getTableData('shareholdings', { showLoader });
             await delay(100);
-            const loans = await this.getTableData('loans');
+            const loans = await this.getTableData('loans', { showLoader });
             await delay(100);
-            const cards = await this.getTableData('cards');
+            const cards = await this.getTableData('cards', { showLoader });
 
             // Filter by name match (case insensitive)
             const normalizedName = (memberName || '').toLowerCase().trim();
@@ -2950,14 +2999,14 @@ class DataManager {
         let totalRecords = 0;
     }
 
-    async getTableData(tableName) {
+    async getTableData(tableName, { showLoader = true } = {}) {
         if (!window.dashboardAuth?.token) {
             return [];
         }
         try {
             // Files table uses different endpoint (/files instead of /api/files)
             const endpoint = tableName === 'files' ? '/files' : `/api/${tableName}`;
-            const result = await this.apiRequest(endpoint);
+            const result = await this.apiRequest(endpoint, 'GET', null, { showLoader });
             return result.data || result.files || [];
         } catch (error) {
             console.error(`Error loading ${tableName} from database:`, error);
