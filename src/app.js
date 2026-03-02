@@ -222,9 +222,9 @@ class DataManager {
             const payload = await this.fetchDashboardStats({ force: true });
             const items = Array.isArray(payload?.upcomingReminders) ? payload.upcomingReminders : [];
 
-            // Separate into overdue and upcoming (accept both 'Active' and 'pending')
+            // Separate into overdue and upcoming (check for 'Pending' status)
             const now = new Date();
-            const activeItems = items.filter(r => r.status === 'Active' || r.status === 'Pending');
+            const activeItems = items.filter(r => r.status === 'Pending');
             const overdue = activeItems.filter(r => new Date(r.reminder_date) < now);
             const upcoming = activeItems.filter(r => new Date(r.reminder_date) >= now);
 
@@ -367,7 +367,7 @@ class DataManager {
                     { name: 'family_member_id', label: 'Linked Person', type: 'family_member_select' },
                     { name: 'holder_name', label: 'Holder Name', type: 'text', required: true },
                     { name: 'company_name', label: 'Company Name', type: 'text' },
-                    { name: 'entity_type', label: 'Entity Type', type: 'select', options: ['Private Limited', 'Public Limited', 'Partnership', 'LLP', 'Sole Proprietorship'] },
+                    { name: 'entity_type', label: 'Entity Type', type: 'select', options: ['Private Limited', 'Public Limited', 'Partnership', 'LLP', 'Sole Proprietorship', 'NBFC', 'Product'] },
                     { name: 'share_holding_certificate_status', label: 'Share Holding Certificate Status', type: 'text' },
                     { name: 'loan_amount', label: 'Loan Amount', type: 'number', step: '0.01' },
                     { name: 'shareholding_percent', label: 'Shareholding %', type: 'number', step: '0.01' },
@@ -593,7 +593,7 @@ class DataManager {
                     { name: 'reminder_date', label: 'Reminder Date & Time', type: 'datetime-local' },
                     { name: 'reminder_type', label: 'Reminder Type', type: 'select', options: ['General', 'Payment', 'Renewal', 'Meeting', 'Important'] },
                     { name: 'priority', label: 'Priority', type: 'select', options: ['Low', 'Medium', 'High', 'Urgent'] },
-                    { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Pending', 'Completed', 'Cancelled'] },
+                    { name: 'status', label: 'Status', type: 'select', options: ['Pending', 'Completed', 'Cancelled'] },
                     { name: 'related_table', label: 'Related Table', type: 'select', options: ['', 'properties', 'assets', 'banking_details', 'policies', 'stocks', 'business_info'] },
                     { name: 'related_record_id', label: 'Related Record ID', type: 'number' },
                     { name: 'notification_sent', label: 'Notification Sent', type: 'select', options: ['No', 'Yes'] },
@@ -3527,6 +3527,17 @@ class DataManager {
         // Prevent Postgres type errors: do not send empty strings for optional fields.
         // (e.g. "" for numeric/date columns causes invalid input syntax)
         // BUT keep required fields like 'name' even if empty (server will validate)
+        // Fix status case - ensure first letter is capitalized
+        if (recordData.status) {
+            recordData.status = recordData.status.charAt(0).toUpperCase() + recordData.status.slice(1).toLowerCase();
+        }
+
+        // Fix priority case - database expects lowercase
+        if (recordData.priority) {
+            recordData.priority = recordData.priority.toLowerCase();
+        }
+
+        // Remove empty values (except name)
         for (const key of Object.keys(recordData)) {
             if (recordData[key] === '' && key !== 'name') {
                 delete recordData[key];
@@ -3648,13 +3659,6 @@ class DataManager {
                 try {
                     await this.apiRequest(`/api/${this.currentTable}/${recordId}`, 'DELETE');
 
-                    // Also delete associated files
-                    if (this.currentTable === 'reminders') {
-                        await this.deleteReminderFiles(recordId);
-                    } else {
-                        await this.deleteAssociatedFiles(recordId);
-                    }
-
                     this.showToast('Record deleted successfully', 'success');
                     this.loadTable(this.currentTable);
                     this.updateDashboardStats();
@@ -3665,44 +3669,6 @@ class DataManager {
                 }
             }
         );
-    }
-
-    async deleteAssociatedFiles(recordId) {
-        try {
-            const filesResult = await this.apiRequest(`/files/record/${this.currentTable}/${recordId}`);
-
-            if (filesResult.files && filesResult.files.length > 0) {
-                for (const file of filesResult.files) {
-                    try {
-                        await this.apiRequest(`/files/${file.id}`, 'DELETE');
-                    } catch (error) {
-                        console.error(`Error deleting file ${file.id}:`, error);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error deleting associated files:', error);
-        }
-    }
-
-    async deleteReminderFiles(recordId) {
-        try {
-            // Get reminder files using the reminder-specific endpoint
-            const filesResult = await this.apiRequest(`/api/reminders/${recordId}/files`);
-
-            if (filesResult && filesResult.length > 0) {
-                for (const file of filesResult) {
-                    try {
-                        // Delete each file using the reminder files endpoint
-                        await this.apiRequest(`/api/reminders/files/${file.id}`, 'DELETE');
-                    } catch (error) {
-                        console.error(`Error deleting reminder file ${file.id}:`, error);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error deleting reminder files:', error);
-        }
     }
 
     manageFiles(recordId) {
@@ -4184,7 +4150,7 @@ class DataManager {
             // Assign new ID
             const newId = Math.max(0, ...newData.map(r => r.id || 0)) + 1;
             record.id = newId;
-            record.created_on = new Date().toISOString();
+            record.created_at = new Date().toISOString();
 
             newData.push(record);
             importCount++;
@@ -4265,8 +4231,37 @@ class DataManager {
     // ==========================
 
     loadActivityLog() {
-        const data = localStorage.getItem('recentActivityLog');
-        return data ? JSON.parse(data) : [];
+        // Fetch from database API instead of localStorage
+        this.fetchActivityLogs();
+        return []; // Will be populated asynchronously
+    }
+
+    async fetchActivityLogs() {
+        try {
+            console.log('🔄 Fetching activity logs from API...');
+            const result = await this.apiRequest('/api/activity-logs');
+            console.log('📊 Activity logs result:', result);
+            
+            if (result.success && result.data) {
+                this.activityLog = result.data.map(log => ({
+                    id: log.id,
+                    action: log.action,
+                    tableName: log.table_name,
+                    recordId: log.record_id,
+                    details: log.details,
+                    timestamp: log.created_at,
+                    ipAddress: log.ip_address,
+                    username: log.username || 'Unknown'
+                }));
+                console.log('✅ Activity logs loaded:', this.activityLog.length, 'items');
+                this.renderRecentActivity();
+            } else {
+                console.warn('⚠️ No activity logs data:', result);
+            }
+        } catch (error) {
+            console.error('❌ Error fetching activity logs:', error);
+        }
+        return this.activityLog;
     }
 
     saveActivityLog() {

@@ -225,10 +225,10 @@ class DesktopDataManager extends DataManager {
 
         if (this.isEditMode && this.editingRecord) {
             record.id = this.editingRecord.id;
-            record.updated_on = new Date().toISOString();
+            record.updated_at = new Date().toISOString();
         } else {
             record.id = this.generateId();
-            record.created_on = new Date().toISOString();
+            record.created_at = new Date().toISOString();
         }
 
         const tableData = this.sampleData[this.currentTable] || [];
