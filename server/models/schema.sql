@@ -64,7 +64,7 @@ CREATE TABLE shareholdings (
     family_member_id INTEGER REFERENCES family_members(id) ON DELETE SET NULL,
     holder_name VARCHAR(200) NOT NULL,
     company_name VARCHAR(200),
-    entity_type VARCHAR(50) CHECK (entity_type IN ('Private Limited', 'Public Limited', 'Partnership', 'LLP', 'Sole Proprietorship')),
+    entity_type VARCHAR(50) CHECK (entity_type IN ('Private Limited', 'Public Limited', 'Partnership', 'LLP', 'Sole Proprietorship', 'NBFC', 'Product')),
     share_holding_certificate_status VARCHAR(100),
     loan_amount DECIMAL(15, 2),
     shareholding_percent DECIMAL(5, 2),
@@ -354,7 +354,7 @@ CREATE TABLE activity_logs (
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     action VARCHAR(50) NOT NULL,
     table_name VARCHAR(50),
-    record_id INTEGER,
+    record_id TEXT,
     details JSONB,
     ip_address INET,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

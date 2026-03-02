@@ -28,10 +28,11 @@ const maxRetries = 5;
 const testConnection = async () => {
     try {
         const client = await pool.connect();
-        await client.query('SELECT NOW()');
+        const result = await client.query('SELECT current_database(), inet_server_addr(), current_user');
+        console.log('🗄️  Database:', result.rows[0]);
         client.release();
         console.log('✅ Connected to PostgreSQL');
-        retryCount = 0; // Reset retry count on success
+        retryCount = 0;
     } catch (err) {
         retryCount++;
         console.error(`❌ PostgreSQL connection attempt ${retryCount} failed:`, err.message);

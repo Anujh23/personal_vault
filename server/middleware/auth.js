@@ -77,6 +77,9 @@ const logToDatabase = async (req, tableName, responseData) => {
         const action = req.method === 'POST' ? 'CREATE' :
             req.method === 'PUT' ? 'UPDATE' : 'DELETE';
 
+        const recordId = req.params.id || responseData?.id || null;
+        console.log('📝 Logging activity:', { action, tableName, recordId, recordIdType: typeof recordId });
+
         await query(
             `INSERT INTO activity_logs (user_id, action, table_name, record_id, details, ip_address)
              VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -84,13 +87,14 @@ const logToDatabase = async (req, tableName, responseData) => {
                 req.user.id,
                 action,
                 tableName,
-                req.params.id || responseData.id || null,
+                recordId ? String(recordId) : null,
                 JSON.stringify({ body: req.body, result: responseData }),
                 ipAddress
             ]
         );
+        console.log('✅ Activity logged successfully');
     } catch (error) {
-        console.error('Activity logging error:', error);
+        console.error('❌ Activity logging error:', error.message);
     }
 };
 

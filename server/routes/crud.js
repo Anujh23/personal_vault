@@ -364,4 +364,29 @@ router.delete('/:table/:id', async (req, res) => {
     }
 });
 
+// Get activity logs for all users
+router.get('/activity-logs', authenticateToken, async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 50;
+        
+        const result = await query(
+            `SELECT al.id, al.action, al.table_name, al.record_id, al.details, al.ip_address, al.created_at,
+                    u.username, u.full_name
+             FROM activity_logs al
+             LEFT JOIN users u ON al.user_id = u.id
+             ORDER BY al.created_at DESC 
+             LIMIT $1`,
+            [limit]
+        );
+        
+        res.json({
+            success: true,
+            data: result.rows
+        });
+    } catch (error) {
+        console.error('Error fetching activity logs:', error);
+        res.status(500).json({ error: 'Failed to fetch activity logs' });
+    }
+});
+
 module.exports = router;
