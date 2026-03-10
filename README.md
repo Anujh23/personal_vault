@@ -1,307 +1,144 @@
-# Personal Dashboard - Online Version with PostgreSQL
+# Personal Vault
 
-A full-stack personal data management application deployed on Render with Node.js + Python microservices architecture.
+A full-stack personal data management application built with Python/FastAPI and PostgreSQL, deployed on Render.
 
 ## Architecture
 
 ```
 ┌──────────────┐      ┌──────────────┐      ┌──────────────┐
-│   Frontend   │──────▶│  Node.js API │──────▶│  PostgreSQL  │
-│  (Static)    │      │  (Express)    │      │  (Render DB) │
-└──────────────┘      └──────┬───────┘      └──────────────┘
-                              │
-                     ┌────────▼────────┐
-                     │  Python Service │
-                     │  (FastAPI)      │
-                     │  Analytics      │
-                     └─────────────────┘
+│   Frontend   │──────▶│   FastAPI    │──────▶│  PostgreSQL  │
+│  (Served by  │      │   Backend    │      │  (Render DB) │
+│   FastAPI)   │      │              │      │              │
+└──────────────┘      └──────────────┘      └──────────────┘
 ```
+
+Single server serves both the API and frontend static files.
 
 ## Project Structure
 
 ```
-Dashboard NEW 2.0/
-├── frontend/                 # Static web UI
-│   ├── index.html          # Main dashboard
-│   ├── style.css           # Styles
-│   └── app.js              # API-based app logic
+personal_vault/
+├── frontend/                # Static web UI
+│   ├── index.html          # Main dashboard + login
+│   ├── css/                # Stylesheets
+│   └── js/                 # Frontend JS modules
 │
-├── server/                   # Node.js API
-│   ├── index.js             # Express server
-│   ├── package.json         # Dependencies
-│   ├── config/
-│   │   ├── database.js      # PostgreSQL pool
-│   │   └── auth.js          # JWT config
-│   ├── middleware/
-│   │   └── auth.js          # Authentication
+├── src/
+│   ├── app.js              # Core app logic
+│   └── style.css           # Main styles
+│
+├── backend/                 # Python FastAPI backend
+│   ├── main.py             # FastAPI app, middleware, static serving
+│   ├── config.py           # Environment config (JWT, DB, port)
+│   ├── database.py         # asyncpg connection pool
+│   ├── requirements.txt    # Python dependencies
 │   └── routes/
-│       ├── auth.js          # Login/register
-│       ├── crud.js          # CRUD operations
-│       └── files.js         # File upload/download
+│       ├── auth_routes.py  # Login, register, password change
+│       ├── crud_routes.py  # Generic CRUD for all tables
+│       ├── file_routes.py  # File upload/download/delete
+│       └── reminder_routes.py  # Reminders management
 │
-├── python_service/           # Python analytics
-│   ├── main.py              # FastAPI app
-│   ├── requirements.txt     # Python deps
-│   └── ...
-│
-├── server/models/
-│   └── schema.sql          # PostgreSQL schema
-│
-├── render.yaml              # Render deployment config
-└── ARCHITECTURE.md          # Detailed architecture docs
+├── assets/                  # Static assets (icons, images)
+├── render_python.yaml       # Render deployment config
+└── .env                     # Environment variables (not committed)
 ```
 
-## Technology Stack
+## Tech Stack
 
-### Backend (Node.js)
-- **Express.js** - Web framework
-- **PostgreSQL** - Database (via `pg`)
-- **JWT** - Authentication (`jsonwebtoken`)
-- **bcrypt** - Password hashing
-- **Multer** - File uploads
-- **Helmet** - Security headers
-- **CORS** - Cross-origin requests
+- **FastAPI** - async web framework
+- **asyncpg** - async PostgreSQL driver
+- **python-jose** - JWT authentication
+- **bcrypt** - password hashing
+- **uvicorn** - ASGI server
 
-### Backend (Python)
-- **FastAPI** - High-performance API
-- **asyncpg** - Async PostgreSQL
-- **Pandas** - Data processing
-- **OpenPyXL** - Excel export
-
-### Database (PostgreSQL)
-- **Tables**: users, personal_info, family_members, properties, assets, banking_details, stocks, policies, business_info, reminders, files, activity_logs
-- **Features**: UUID primary keys, foreign keys, indexes, triggers for updated_at
-- **File Storage**: BYTEA columns for binary data
-
-## Local Development Setup
+## Local Development
 
 ### Prerequisites
-- Node.js 18+
 - Python 3.11+
 - PostgreSQL 14+
 
-### 1. Database Setup
+### Setup
 
 ```bash
-# Create PostgreSQL database
-createdb dashboard
+# Install dependencies
+pip install -r backend/requirements.txt
 
-# Run schema
-psql -d dashboard -f server/models/schema.sql
-```
-
-### 2. Node.js API Setup
-
-```bash
-cd server
-npm install
-
-# Create .env file
+# Create .env in project root
 cat > .env << EOF
-NODE_ENV=development
-DATABASE_URL=postgresql://localhost:5432/dashboard
+DATABASE_URL=postgresql://localhost:5432/personal_vault
 JWT_SECRET=your-secret-key-here
-FRONTEND_URL=http://localhost:5500
 PORT=3000
 EOF
 
-# Start server
-npm run dev
+# Run the server (serves both API + frontend)
+cd backend && python main.py
 ```
 
-### 3. Python Service Setup
-
-```bash
-cd python_service
-pip install -r requirements.txt
-
-# Create .env file
-cat > .env << EOF
-DATABASE_URL=postgresql://localhost:5432/dashboard
-PORT=8000
-EOF
-
-# Start service
-uvicorn main:app --reload --port 8000
-```
-
-### 4. Frontend Setup
-
-```bash
-# Serve frontend folder with any static server
-# VS Code Live Server, Python http.server, etc.
-cd frontend
-python -m http.server 5500
-```
+App will be available at `http://localhost:3000`.
 
 ## Render Deployment
 
-### Step 1: Create PostgreSQL Database
-1. Go to [Render Dashboard](https://dashboard.render.com)
-2. Click "New +" → "PostgreSQL"
-3. Name: `dashboard-db`
-4. Plan: Starter ($7/month) or Free (if available)
-5. Create
+### Build Command
+```
+pip install -r backend/requirements.txt
+```
 
-### Step 2: Deploy Node.js API
-1. Click "New +" → "Web Service"
-2. Connect your GitHub repo
-3. Name: `dashboard-api`
-4. Root Directory: `server`
-5. Build Command: `npm install`
-6. Start Command: `node index.js`
-7. Add Environment Variables:
-   - `NODE_ENV=production`
-   - `JWT_SECRET` (generate random string)
-   - `DATABASE_URL` (copy from PostgreSQL service)
-8. Deploy
+### Start Command
+```
+cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+```
 
-### Step 3: Deploy Python Service
-1. Click "New +" → "Web Service"
-2. Name: `dashboard-python`
-3. Root Directory: `python_service`
-4. Runtime: Python 3
-5. Build Command: `pip install -r requirements.txt`
-6. Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-7. Add Environment Variables:
-   - `DATABASE_URL` (same as above)
-8. Deploy
+### Environment Variables
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `JWT_SECRET` | Secret key for JWT tokens (auto-generated on Render) |
+| `FRONTEND_URL` | Frontend URL for CORS (optional, defaults to `*`) |
+| `PORT` | Server port (default: 3000) |
 
-### Step 4: Deploy Frontend
-1. Click "New +" → "Static Site"
-2. Name: `dashboard-ui`
-3. Root Directory: `frontend`
-4. Build Command: `echo "Ready"` (or leave empty)
-5. Publish Directory: `.`
-6. Deploy
-
-### Alternative: Using render.yaml (Blueprints)
+### Using render_python.yaml (Blueprint)
 1. Push code to GitHub
-2. In Render Dashboard → "Blueprints" → "New Blueprint Instance"
-3. Connect repo
-4. Render will create all services automatically
+2. In Render Dashboard → Blueprints → New Blueprint Instance
+3. Connect repo and select `render_python.yaml`
+4. Render creates the service automatically
 
 ## API Endpoints
 
 ### Authentication
-- `POST /auth/login` - Login with username/password
-- `POST /auth/register` - Create new user (admin only)
+- `POST /auth/login` - Login
+- `POST /auth/register` - Register new user
 - `GET /auth/me` - Get current user
 - `PUT /auth/change-password` - Change password
 
-### CRUD Operations
-- `GET /api/:table` - List records (with pagination)
+### CRUD
+- `GET /api/:table` - List records
 - `POST /api/:table` - Create record
-- `GET /api/:table/:id` - Get single record
+- `GET /api/:table/:id` - Get record
 - `PUT /api/:table/:id` - Update record
 - `DELETE /api/:table/:id` - Delete record
+- `GET /api/dashboard/stats` - Dashboard statistics
 
 ### Files
 - `POST /files/upload` - Upload file
 - `GET /files/:id` - Download file
-- `GET /files/record/:table/:recordId` - List files
+- `GET /files/record/:table/:recordId` - List files for a record
 - `DELETE /files/:id` - Delete file
 
-### Dashboard
-- `GET /api/dashboard/stats` - Get dashboard statistics
+### Reminders
+- `GET /reminders` - List reminders
+- `POST /reminders` - Create reminder
+- `PUT /reminders/:id` - Update reminder
+- `DELETE /reminders/:id` - Delete reminder
 
-## Python Analytics Endpoints
+### Health
+- `GET /health` - Health check (verifies DB connectivity)
 
-- `GET /health` - Service health check
-- `GET /analytics/dashboard-stats/{user_id}` - Comprehensive stats
-- `GET /analytics/family-tree/{user_id}` - Hierarchical family tree
-- `GET /analytics/portfolio-summary/{user_id}` - Investment summary
-- `POST /analytics/export/{user_id}` - Export data (JSON/CSV/Excel)
-- `GET /analytics/activity-timeline/{user_id}` - Recent activity
+## Security
 
-## Security Features
-
-1. **JWT Authentication** - Stateless auth with 24h expiration
-2. **Password Hashing** - bcrypt with 10 salt rounds
-3. **Row-Level Security** - Users only access their own data
-4. **Rate Limiting** - 100 requests per 15 minutes per IP
-5. **Helmet** - Security headers (XSS, CSRF protection)
-6. **Input Validation** - Required fields and data types
-7. **SQL Injection Protection** - Parameterized queries throughout
-
-## Database Schema Highlights
-
-### Users Table
-- UUID primary keys
-- Username/email unique constraints
-- bcrypt password hashes
-- Role-based access (admin/user)
-- Soft delete (is_active flag)
-
-### Files Storage
-- Files stored as BYTEA in PostgreSQL
-- 10MB size limit per file
-- Metadata tracking (name, mime_type, size)
-- Related to specific records
-
-### Activity Logging
-- All CRUD operations logged
-- IP address tracking
-- JSON details for audit trail
-
-## Frontend API Configuration
-
-Update `frontend/index.html`:
-
-```javascript
-// For local development
-window.API_BASE_URL = 'http://localhost:3000';
-window.PYTHON_API_URL = 'http://localhost:8000';
-
-// For production (after Render deployment)
-window.API_BASE_URL = 'https://dashboard-api.onrender.com';
-window.PYTHON_API_URL = 'https://dashboard-python.onrender.com';
-```
-
-## Troubleshooting
-
-### Database Connection Issues
-```bash
-# Check if PostgreSQL is running
-pg_isready -h localhost -p 5432
-
-# Test connection
-psql -d dashboard -c "SELECT 1;"
-```
-
-### API Not Responding
-- Check `DATABASE_URL` is correct
-- Verify JWT_SECRET is set
-- Check Render logs in dashboard
-
-### CORS Errors
-- Ensure `FRONTEND_URL` matches your actual frontend URL
-- Check CORS configuration in `server/index.js`
-
-### Python Service Issues
-```bash
-# Test Python API locally
-curl http://localhost:8000/health
-
-# Check logs
-render logs --service dashboard-python
-```
-
-## Next Steps
-
-1. **Implement frontend API calls** in `frontend/app.js`
-2. **Add file upload progress** indicator
-3. **Implement real-time notifications** with WebSockets
-4. **Add data visualization** charts with Python matplotlib
-5. **Set up automated backups** for PostgreSQL
-6. **Add 2FA authentication** for enhanced security
-
-## Cost Estimate (Render)
-
-- **PostgreSQL**: $7/month (Starter)
-- **Node.js API**: $7/month (Starter)
-- **Python Service**: $7/month (Starter)
-- **Static Site**: Free
-- **Total**: ~$21/month
-
-Use Render's free tier for development (services sleep after 15 min inactivity).
+- JWT authentication with 24h expiration
+- bcrypt password hashing
+- Security headers (X-Frame-Options, HSTS, XSS protection, etc.)
+- Path traversal protection for static files
+- Parameterized SQL queries (no SQL injection)
+- CORS restricted to configured origins
+- Structured JSON logging with request IDs
