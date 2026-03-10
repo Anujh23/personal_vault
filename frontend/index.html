@@ -15,10 +15,8 @@
         rel="stylesheet">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script>
-        // API Configuration - Uses Render backend in production
-        window.API_BASE_URL = window.location.hostname === 'localhost'
-            ? 'http://localhost:3000'
-            : 'https://personal-dashboard-iro2.onrender.com';
+        // API Configuration - auto-detect from current URL
+        window.API_BASE_URL = window.location.origin;
 
         console.log('🔧 API_BASE_URL:', window.API_BASE_URL);
         console.log('🔧 Hostname:', window.location.hostname);
@@ -275,11 +273,6 @@
                                         <i data-lucide="database" class="welcome-stat-icon"></i>
                                         <span class="welcome-stat-value" id="totalRecords">0</span>
                                         <span class="welcome-stat-label">Total Records</span>
-                                    </div>
-                                    <div class="welcome-stat">
-                                        <i data-lucide="folder" class="welcome-stat-icon"></i>
-                                        <span class="welcome-stat-value" id="totalFiles">0</span>
-                                        <span class="welcome-stat-label">Files Stored</span>
                                     </div>
                                     <div class="welcome-stat">
                                         <i data-lucide="bell" class="welcome-stat-icon"></i>
@@ -634,7 +627,7 @@
         <input type="file" id="importFileInput" accept=".json,.csv" style="display: none;">
 
         <!-- Scripts -->
-        <script src="/src/app.js?v=4" type="module"></script>
+        <script src="/src/app.js?v=5" type="module"></script>
         <!-- Reminder Components -->
         <script src="/js/components/reminderIndicators.js"></script>
 

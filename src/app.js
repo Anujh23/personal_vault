@@ -14,7 +14,11 @@ class DataManager {
         this.uploadedFiles = [];
         this.isEditMode = false;
         this.fileUploadInitialized = false;
-        this.activityLog = this.loadActivityLog();
+
+        // API Configuration - must be set BEFORE loadActivityLog
+        this.API_BASE_URL = (typeof window.API_BASE_URL !== 'undefined' && window.API_BASE_URL) ? window.API_BASE_URL : '';
+        window.API_BASE_URL = this.API_BASE_URL;
+        console.log('🔌 API Base URL:', this.API_BASE_URL);
 
         // Loading overlay management (prevents flicker with multiple API calls)
         this._loadingCount = 0;
@@ -22,10 +26,7 @@ class DataManager {
         this._loadingMinMs = 250;
         this._loadingHideTimer = null;
 
-        // API Configuration - fallback to localhost if not set
-        this.API_BASE_URL = (typeof window.API_BASE_URL !== 'undefined' && window.API_BASE_URL) ? window.API_BASE_URL : 'http://localhost:3000';
-        window.API_BASE_URL = this.API_BASE_URL;
-        console.log('🔌 API Base URL:', this.API_BASE_URL);
+        this.activityLog = this.loadActivityLog();
 
         // Hook save function to update activity log
         const originalSaveData = this.saveData?.bind(this);
@@ -1484,6 +1485,8 @@ class DataManager {
                 if (window.dashboardAuth?.token) {
                     this.updateDashboardStats();
                     this.updateWelcomeStats();
+                    this.loadUpcomingReminders();
+                    this.fetchActivityLogs();
                 }
             }
         } else if (sectionName === 'family-tree') {
@@ -1508,13 +1511,11 @@ class DataManager {
     // NEW: Update Welcome Stats with Animation
     updateWelcomeStats() {
         let totalRecords = 0;
-        let totalFiles = 0;
         let activeReminders = 0;
 
         // Calculate totals
         if (!window.dashboardAuth?.token) {
             this.animateCounter('totalRecords', 0);
-            this.animateCounter('totalFiles', 0);
             this.animateCounter('activeReminders', 0);
             return;
         }
@@ -1523,7 +1524,6 @@ class DataManager {
             .then((payload) => {
                 const stats = payload?.stats || {};
 
-                totalFiles = stats.files || 0;
                 activeReminders = stats.activeReminders || 0;
 
                 // Sum of all data tables (exclude files, reminders meta, and activeReminders)
@@ -1533,13 +1533,11 @@ class DataManager {
                 }
 
                 this.animateCounter('totalRecords', totalRecords);
-                this.animateCounter('totalFiles', totalFiles);
                 this.animateCounter('activeReminders', activeReminders);
             })
             .catch((e) => {
                 console.error('Error updating welcome stats:', e);
                 this.animateCounter('totalRecords', 0);
-                this.animateCounter('totalFiles', 0);
                 this.animateCounter('activeReminders', 0);
             });
     }
@@ -1940,7 +1938,11 @@ class DataManager {
                     } else if (field.type === 'datetime-local' && value) {
                         value = new Date(value).toLocaleString();
                     } else if (typeof value === 'number' && field.step === '0.01') {
-                        value = '₹' + value.toLocaleString();
+                        if (field.name.toLowerCase().includes('percent') || field.name.toLowerCase().includes('rate')) {
+                            value = value + '%';
+                        } else {
+                            value = '₹' + value.toLocaleString();
+                        }
                     }
 
                     // Add color coding for Credit (green) and Debit (red)
@@ -1992,7 +1994,11 @@ class DataManager {
                         value = new Date(value).toLocaleString();
                     } else if (typeof value === 'number') {
                         if (field.step === '0.01') {
-                            value = '₹' + value.toLocaleString();
+                            if (field.name.toLowerCase().includes('percent') || field.name.toLowerCase().includes('rate')) {
+                                value = value + '%';
+                            } else {
+                                value = '₹' + value.toLocaleString();
+                            }
                         }
                     }
 
@@ -2032,7 +2038,11 @@ class DataManager {
                         value = new Date(value).toLocaleString();
                     } else if (typeof value === 'number') {
                         if (field.step === '0.01') {
-                            value = '₹' + value.toLocaleString();
+                            if (field.name.toLowerCase().includes('percent') || field.name.toLowerCase().includes('rate')) {
+                                value = value + '%';
+                            } else {
+                                value = '₹' + value.toLocaleString();
+                            }
                         }
                     }
 
@@ -4237,6 +4247,7 @@ class DataManager {
     }
 
     async fetchActivityLogs() {
+        if (!window.dashboardAuth?.token) return this.activityLog || [];
         try {
             console.log('🔄 Fetching activity logs from API...');
             const result = await this.apiRequest('/api/activity-logs');
@@ -4293,7 +4304,9 @@ class DataManager {
 
         this.activityLog.slice(0, 10).forEach(item => {
             const li = document.createElement('li');
-            li.textContent = `${item.date} - ${item.message}`;
+            const table = (item.tableName || '').replace(/_/g, ' ');
+            const date = item.timestamp ? new Date(item.timestamp).toLocaleString() : (item.date || '');
+            li.textContent = `${item.action || item.message || ''} ${table} #${item.recordId || ''} - ${date} by ${item.username || ''}`.trim();
             ul.appendChild(li);
         });
 

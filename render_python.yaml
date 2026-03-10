@@ -1,0 +1,17 @@
+services:
+  - name: personal-vault
+    type: web
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: ${DATABASE_URL}
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: PORT
+        value: 3000
+    healthCheckPath: /health
