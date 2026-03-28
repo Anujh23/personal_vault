@@ -67,6 +67,39 @@ def _is_valid_table(table: str) -> bool:
     return table in TABLE_CONFIG
 
 
+# Columns that are INTEGER or NUMERIC in PostgreSQL — asyncpg needs exact types
+_INT_COLUMNS = {
+    "family_member_id", "father_id", "mother_id",
+    "premium_paying_term", "rooms_count", "loan_tenure_years",
+    "equity_shares", "employee_count", "bill_generation_date",
+    "payment_due_date", "loan_term_years", "loan_term_months",
+    "related_record_id", "repeat_interval", "snooze_count",
+}
+_NUMERIC_COLUMNS = {
+    "nominees_share_percent", "premium_amount", "total_premium_amount",
+    "death_sum_assured", "sum_insured", "bonus_or_additional",
+    "purchase_price", "current_value", "annual_revenue", "daily_limit",
+    "amount", "loan_amount", "interest_rate", "emi_amount",
+    "total_area", "property_value", "registration_fees",
+    "total_emi", "total_emi_payment", "income_from_property",
+    "monthly_rent", "monthly_maintenance", "total_income",
+    "value", "at_price", "profit_loss",
+    "shareholding_percent",
+}
+
+
+def _coerce_value(col: str, val):
+    """Cast string values to the Python type asyncpg expects."""
+    if val is None or val == "":
+        return None
+    if col in _INT_COLUMNS:
+        return int(val)
+    if col in _NUMERIC_COLUMNS:
+        from decimal import Decimal
+        return Decimal(str(val))
+    return val
+
+
 def _row_to_dict(row) -> dict:
     """Convert asyncpg Record to JSON-serialisable dict."""
     if row is None:
@@ -233,8 +266,11 @@ async def create_record(table: str, request: Request, user: dict = Depends(get_c
 
     for col in config["columns"]:
         if col in data and data[col] is not None:
+            coerced = _coerce_value(col, data[col])
+            if coerced is None:
+                continue
             columns.append(col)
-            values.append(data[col])
+            values.append(coerced)
             placeholders.append(f"${idx}")
             idx += 1
 
@@ -265,7 +301,7 @@ async def update_record(table: str, record_id: int, request: Request, user: dict
     for col in config["columns"]:
         if col in data:
             set_clauses.append(f"{col} = ${idx}")
-            values.append(data[col])
+            values.append(_coerce_value(col, data[col]))
             idx += 1
 
     set_clauses.append("updated_at = CURRENT_TIMESTAMP")
