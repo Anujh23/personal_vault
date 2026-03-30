@@ -1,8 +1,13 @@
 import json
 import asyncio
+import logging
+from datetime import date as date_type, datetime
+from decimal import Decimal, InvalidOperation
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from dependencies import get_current_user, log_activity
 from database import query, query_one
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["crud"])
 
@@ -86,6 +91,12 @@ _NUMERIC_COLUMNS = {
     "value", "at_price", "profit_loss",
     "shareholding_percent",
 }
+_DATE_COLUMNS = {
+    "date_of_birth", "policy_start_date", "policy_last_payment_date",
+    "date_of_maturity", "purchase_date", "registration_date",
+    "loan_start_date", "loan_end_date", "reminder_date",
+    "start_date", "end_date", "payment_date",
+}
 
 
 def _coerce_value(col: str, val):
@@ -95,8 +106,11 @@ def _coerce_value(col: str, val):
     if col in _INT_COLUMNS:
         return int(val)
     if col in _NUMERIC_COLUMNS:
-        from decimal import Decimal
         return Decimal(str(val))
+    if col in _DATE_COLUMNS:
+        if isinstance(val, date_type):
+            return val
+        return datetime.strptime(str(val), "%Y-%m-%d").date()
     return val
 
 
@@ -266,7 +280,10 @@ async def create_record(table: str, request: Request, user: dict = Depends(get_c
 
     for col in config["columns"]:
         if col in data and data[col] is not None:
-            coerced = _coerce_value(col, data[col])
+            try:
+                coerced = _coerce_value(col, data[col])
+            except (ValueError, InvalidOperation) as e:
+                raise HTTPException(status_code=400, detail=f"Invalid value for {col}: {data[col]}")
             if coerced is None:
                 continue
             columns.append(col)
@@ -275,7 +292,11 @@ async def create_record(table: str, request: Request, user: dict = Depends(get_c
             idx += 1
 
     sql = f"INSERT INTO {table} ({', '.join(columns)}) VALUES ({', '.join(placeholders)}) RETURNING *"
-    row = await query_one(sql, *values)
+    try:
+        row = await query_one(sql, *values)
+    except Exception as e:
+        logger.error("INSERT into %s failed: %s | SQL: %s | Values: %s", table, e, sql, values)
+        raise HTTPException(status_code=400, detail=f"Database error: {e}")
 
     result = _row_to_dict(row)
 
@@ -300,15 +321,22 @@ async def update_record(table: str, record_id: int, request: Request, user: dict
 
     for col in config["columns"]:
         if col in data:
-            set_clauses.append(f"{col} = ${idx}")
-            values.append(_coerce_value(col, data[col]))
-            idx += 1
+            try:
+                set_clauses.append(f"{col} = ${idx}")
+                values.append(_coerce_value(col, data[col]))
+                idx += 1
+            except (ValueError, InvalidOperation) as e:
+                raise HTTPException(status_code=400, detail=f"Invalid value for {col}: {data[col]}")
 
     set_clauses.append("updated_at = CURRENT_TIMESTAMP")
     values.append(record_id)
 
     sql = f"UPDATE {table} SET {', '.join(set_clauses)} WHERE id = ${idx} RETURNING *"
-    row = await query_one(sql, *values)
+    try:
+        row = await query_one(sql, *values)
+    except Exception as e:
+        logger.error("UPDATE %s failed: %s | SQL: %s | Values: %s", table, e, sql, values)
+        raise HTTPException(status_code=400, detail=f"Database error: {e}")
 
     if row is None:
         raise HTTPException(status_code=404, detail="Record not found")

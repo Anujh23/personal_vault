@@ -80,7 +80,7 @@ class DataManager {
             }
 
             if (!response.ok) {
-                const message = result.error || response.statusText || 'API request failed';
+                const message = result.detail || result.error || response.statusText || 'API request failed';
 
                 // If the token is missing/invalid or the session expired,
                 // force a logout and send the user back to the login screen.
