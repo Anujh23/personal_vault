@@ -3,8 +3,27 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from dependencies import get_current_user
 from database import query, query_one, execute
+from routes.crud_routes import parse_timestamp
 
 router = APIRouter(prefix="/api/reminders", tags=["reminders"])
+
+
+def _opt_timestamp(val):
+    if val is None or val == "":
+        return None
+    try:
+        return parse_timestamp(val)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail=f"Invalid reminder_date: {val}")
+
+
+def _opt_int(val):
+    if val is None or val == "":
+        return None
+    try:
+        return int(val)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=400, detail=f"Invalid integer value: {val}")
 
 
 def _row_to_dict(row) -> dict | None:
@@ -63,14 +82,14 @@ async def create_reminder(request: Request, user: dict = Depends(get_current_use
         user["id"],
         title,
         body.get("description"),
-        body.get("reminder_date"),
+        _opt_timestamp(body.get("reminder_date")),
         body.get("reminder_type", "General"),
         body.get("priority", "Medium"),
         body.get("status", "Pending"),
         body.get("related_table"),
-        body.get("related_record_id"),
+        _opt_int(body.get("related_record_id")),
         body.get("repeat_type", "None"),
-        body.get("repeat_interval"),
+        _opt_int(body.get("repeat_interval")),
     )
 
     return {"success": True, "data": _row_to_dict(row)}
@@ -78,7 +97,7 @@ async def create_reminder(request: Request, user: dict = Depends(get_current_use
 
 # ─── Update reminder ───────────────────────────────────────────────
 @router.put("/{reminder_id}")
-async def update_reminder(reminder_id: str, request: Request, user: dict = Depends(get_current_user)):
+async def update_reminder(reminder_id: int, request: Request, user: dict = Depends(get_current_user)):
     body = await request.json()
 
     row = await query_one(
@@ -99,14 +118,14 @@ async def update_reminder(reminder_id: str, request: Request, user: dict = Depen
         reminder_id,
         body.get("title"),
         body.get("description"),
-        body.get("reminder_date"),
+        _opt_timestamp(body.get("reminder_date")),
         body.get("reminder_type", "General"),
         body.get("priority", "Medium"),
         body.get("status", "Pending"),
         body.get("related_table"),
-        body.get("related_record_id"),
+        _opt_int(body.get("related_record_id")),
         body.get("repeat_type", "None"),
-        body.get("repeat_interval"),
+        _opt_int(body.get("repeat_interval")),
     )
 
     if row is None:
@@ -117,7 +136,7 @@ async def update_reminder(reminder_id: str, request: Request, user: dict = Depen
 
 # ─── Delete reminder ───────────────────────────────────────────────
 @router.delete("/{reminder_id}")
-async def delete_reminder(reminder_id: str, user: dict = Depends(get_current_user)):
+async def delete_reminder(reminder_id: int, user: dict = Depends(get_current_user)):
     # Delete associated files first
     await execute("DELETE FROM reminder_files WHERE reminder_id = $1", reminder_id)
 
@@ -165,7 +184,7 @@ async def get_due_reminders(user: dict = Depends(get_current_user)):
 
 # ─── Mark reminder as completed ────────────────────────────────────
 @router.post("/{reminder_id}/complete")
-async def complete_reminder(reminder_id: str, user: dict = Depends(get_current_user)):
+async def complete_reminder(reminder_id: int, user: dict = Depends(get_current_user)):
     row = await query_one(
         """UPDATE reminders
            SET status = 'Completed',
@@ -187,7 +206,7 @@ async def complete_reminder(reminder_id: str, user: dict = Depends(get_current_u
 
 # ─── Mark reminder as notified ─────────────────────────────────────
 @router.post("/{reminder_id}/notified")
-async def notified_reminder(reminder_id: str, user: dict = Depends(get_current_user)):
+async def notified_reminder(reminder_id: int, user: dict = Depends(get_current_user)):
     row = await query_one(
         """UPDATE reminders
            SET notification_sent = true,
@@ -204,7 +223,7 @@ async def notified_reminder(reminder_id: str, user: dict = Depends(get_current_u
 
 # ─── Snooze reminder ───────────────────────────────────────────────
 @router.post("/{reminder_id}/snooze")
-async def snooze_reminder(reminder_id: str, request: Request, user: dict = Depends(get_current_user)):
+async def snooze_reminder(reminder_id: int, request: Request, user: dict = Depends(get_current_user)):
     body = await request.json()
     minutes = body.get("minutes", 5)
 
@@ -233,7 +252,7 @@ async def snooze_reminder(reminder_id: str, request: Request, user: dict = Depen
 
 # ─── Schedule reminder ─────────────────────────────────────────────
 @router.post("/{reminder_id}/schedule")
-async def schedule_reminder(reminder_id: str, request: Request, user: dict = Depends(get_current_user)):
+async def schedule_reminder(reminder_id: int, request: Request, user: dict = Depends(get_current_user)):
     body = await request.json()
     reminder_date = body.get("reminder_date")
 
@@ -249,7 +268,7 @@ async def schedule_reminder(reminder_id: str, request: Request, user: dict = Dep
            WHERE id = $1
            RETURNING *""",
         reminder_id,
-        reminder_date,
+        _opt_timestamp(reminder_date),
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Reminder not found")
@@ -263,7 +282,7 @@ async def schedule_reminder(reminder_id: str, request: Request, user: dict = Dep
 
 # ─── Reminder file operations ──────────────────────────────────────
 @router.get("/{reminder_id}/files")
-async def get_reminder_files(reminder_id: str, user: dict = Depends(get_current_user)):
+async def get_reminder_files(reminder_id: int, user: dict = Depends(get_current_user)):
     rows = await query(
         """SELECT id, filename, original_name, file_size, mime_type, uploaded_at
            FROM reminder_files
@@ -275,7 +294,7 @@ async def get_reminder_files(reminder_id: str, user: dict = Depends(get_current_
 
 
 @router.delete("/files/{file_id}")
-async def delete_reminder_file(file_id: str, user: dict = Depends(get_current_user)):
+async def delete_reminder_file(file_id: int, user: dict = Depends(get_current_user)):
     row = await query_one(
         """SELECT rf.*
            FROM reminder_files rf

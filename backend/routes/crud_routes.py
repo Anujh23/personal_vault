@@ -1,7 +1,7 @@
 import json
 import asyncio
 import logging
-from datetime import date as date_type, datetime
+from datetime import date as date_type, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from dependencies import get_current_user, log_activity
@@ -72,45 +72,54 @@ def _is_valid_table(table: str) -> bool:
     return table in TABLE_CONFIG
 
 
-# Columns that are INTEGER or NUMERIC in PostgreSQL — asyncpg needs exact types
-_INT_COLUMNS = {
-    "family_member_id", "father_id", "mother_id",
-    "premium_paying_term", "rooms_count", "loan_tenure_years",
-    "equity_shares", "employee_count", "bill_generation_date",
-    "payment_due_date", "loan_term_years", "loan_term_months",
-    "related_record_id", "repeat_interval", "snooze_count",
-}
-_NUMERIC_COLUMNS = {
-    "nominees_share_percent", "premium_amount", "total_premium_amount",
-    "death_sum_assured", "sum_insured", "bonus_or_additional",
-    "purchase_price", "current_value", "annual_revenue", "daily_limit",
-    "amount", "loan_amount", "interest_rate", "emi_amount",
-    "total_area", "property_value", "registration_fees",
-    "total_emi", "total_emi_payment", "income_from_property",
-    "monthly_rent", "monthly_maintenance", "total_income",
-    "value", "at_price", "profit_loss",
-    "shareholding_percent",
-}
-_DATE_COLUMNS = {
-    "date_of_birth", "policy_start_date", "policy_last_payment_date",
-    "date_of_maturity", "purchase_date", "registration_date",
-    "loan_start_date", "loan_end_date", "reminder_date",
-    "start_date", "end_date", "payment_date",
-}
+# Column types loaded from information_schema on first write request.
+# asyncpg needs exact Python types (int/Decimal/date/datetime) — deriving
+# them from the live schema avoids hand-maintained lists drifting from it.
+_COLUMN_TYPES: dict[str, dict[str, str]] = {}
 
 
-def _coerce_value(col: str, val):
-    """Cast string values to the Python type asyncpg expects."""
+async def ensure_column_types():
+    if _COLUMN_TYPES:
+        return
+    rows = await query(
+        """SELECT table_name, column_name, data_type
+           FROM information_schema.columns
+           WHERE table_schema = 'public'"""
+    )
+    for r in rows:
+        _COLUMN_TYPES.setdefault(r["table_name"], {})[r["column_name"]] = r["data_type"]
+
+
+def parse_timestamp(val) -> datetime:
+    if isinstance(val, datetime):
+        return val
+    dt = datetime.fromisoformat(str(val).replace("Z", "+00:00"))
+    # reminders.reminder_date etc. are timestamp WITHOUT time zone —
+    # asyncpg rejects tz-aware datetimes for those columns
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
+def coerce_value(table: str, col: str, val):
+    """Cast JSON values to the Python type asyncpg expects for this column."""
     if val is None or val == "":
         return None
-    if col in _INT_COLUMNS:
+    dtype = _COLUMN_TYPES.get(table, {}).get(col)
+    if dtype in ("integer", "bigint", "smallint"):
         return int(val)
-    if col in _NUMERIC_COLUMNS:
+    if dtype in ("numeric", "real", "double precision"):
         return Decimal(str(val))
-    if col in _DATE_COLUMNS:
+    if dtype == "date":
+        if isinstance(val, datetime):
+            return val.date()
         if isinstance(val, date_type):
             return val
-        return datetime.strptime(str(val), "%Y-%m-%d").date()
+        return date_type.fromisoformat(str(val)[:10])
+    if dtype in ("timestamp without time zone", "timestamp with time zone"):
+        return parse_timestamp(val)
+    if dtype == "boolean" and isinstance(val, str):
+        return val.strip().lower() in ("true", "1", "yes", "on")
     return val
 
 
@@ -272,6 +281,8 @@ async def create_record(table: str, request: Request, user: dict = Depends(get_c
         if not data.get(field):
             raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
 
+    await ensure_column_types()
+
     # Build INSERT
     columns = ["user_id"]
     values = [user["id"]]
@@ -281,8 +292,8 @@ async def create_record(table: str, request: Request, user: dict = Depends(get_c
     for col in config["columns"]:
         if col in data and data[col] is not None:
             try:
-                coerced = _coerce_value(col, data[col])
-            except (ValueError, InvalidOperation) as e:
+                coerced = coerce_value(table, col, data[col])
+            except (ValueError, TypeError, InvalidOperation):
                 raise HTTPException(status_code=400, detail=f"Invalid value for {col}: {data[col]}")
             if coerced is None:
                 continue
@@ -315,6 +326,8 @@ async def update_record(table: str, record_id: int, request: Request, user: dict
     data = await request.json()
     config = TABLE_CONFIG[table]
 
+    await ensure_column_types()
+
     set_clauses = []
     values = []
     idx = 1
@@ -322,11 +335,12 @@ async def update_record(table: str, record_id: int, request: Request, user: dict
     for col in config["columns"]:
         if col in data:
             try:
-                set_clauses.append(f"{col} = ${idx}")
-                values.append(_coerce_value(col, data[col]))
-                idx += 1
-            except (ValueError, InvalidOperation) as e:
+                coerced = coerce_value(table, col, data[col])
+            except (ValueError, TypeError, InvalidOperation):
                 raise HTTPException(status_code=400, detail=f"Invalid value for {col}: {data[col]}")
+            set_clauses.append(f"{col} = ${idx}")
+            values.append(coerced)
+            idx += 1
 
     set_clauses.append("updated_at = CURRENT_TIMESTAMP")
     values.append(record_id)
