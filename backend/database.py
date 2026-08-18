@@ -50,6 +50,39 @@ async def init_pool():
             await asyncio.sleep(5)
 
 
+async def ensure_schema():
+    """Create tables this app owns if they don't exist yet (idempotent)."""
+    p = await get_pool()
+    async with p.acquire() as conn:
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS login_otps (
+                id           TEXT PRIMARY KEY,
+                user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                code_hash    TEXT NOT NULL,
+                purpose      TEXT NOT NULL DEFAULT 'login',
+                expires_at   TIMESTAMPTZ NOT NULL,
+                attempts     INTEGER NOT NULL DEFAULT 0,
+                sends        INTEGER NOT NULL DEFAULT 1,
+                last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+                consumed     BOOLEAN NOT NULL DEFAULT FALSE,
+                created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+            )
+            """
+        )
+        # Idempotent upgrades for an already-created table.
+        await conn.execute(
+            "ALTER TABLE login_otps ADD COLUMN IF NOT EXISTS sends INTEGER NOT NULL DEFAULT 1"
+        )
+        await conn.execute(
+            "ALTER TABLE login_otps ADD COLUMN IF NOT EXISTS last_sent_at TIMESTAMPTZ NOT NULL DEFAULT now()"
+        )
+        await conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_login_otps_user ON login_otps(user_id)"
+        )
+    logger.info("Schema ensured (login_otps)")
+
+
 async def close_pool():
     global pool
     if pool:
