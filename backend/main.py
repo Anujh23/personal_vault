@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse, JSONResponse
 sys.path.insert(0, os.path.dirname(__file__))
 
 from config import PORT
-from database import init_pool, close_pool, query_one, ensure_schema
+from database import init_pool, close_pool, query_one
 
 from routes.auth_routes import router as auth_router
 from routes.crud_routes import router as crud_router
@@ -78,7 +78,6 @@ async def _db_keep_alive():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_pool()
-    await ensure_schema()
     global _keep_alive_task
     _keep_alive_task = asyncio.create_task(_db_keep_alive())
     logger.info("Server started on port %d", PORT)

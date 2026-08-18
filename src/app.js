@@ -4599,37 +4599,13 @@ async function verifyTokenAndShowDashboard() {
     }
 }
 
-let loginState = { challenge: null, busy: false };
-
 function setupLoginHandlers() {
     const loginForm = document.getElementById('loginForm');
-    if (loginForm && !loginForm.dataset.bound) {
+    if (loginForm) {
         loginForm.addEventListener('submit', function (e) {
             e.preventDefault();
             handleLogin(e);
         });
-        loginForm.dataset.bound = 'true';
-    }
-
-    const otpForm = document.getElementById('otpForm');
-    if (otpForm && !otpForm.dataset.bound) {
-        otpForm.addEventListener('submit', function (e) {
-            e.preventDefault();
-            handleVerifyOtp(e);
-        });
-        otpForm.dataset.bound = 'true';
-    }
-
-    const resendBtn = document.getElementById('otpResendBtn');
-    if (resendBtn && !resendBtn.dataset.bound) {
-        resendBtn.addEventListener('click', handleResendOtp);
-        resendBtn.dataset.bound = 'true';
-    }
-
-    const backBtn = document.getElementById('otpBackBtn');
-    if (backBtn && !backBtn.dataset.bound) {
-        backBtn.addEventListener('click', backToCredentials);
-        backBtn.dataset.bound = 'true';
     }
 }
 
@@ -4660,19 +4636,22 @@ async function handleLogin(e) {
 
         const data = await response.json();
 
-        if (response.ok && data.otpRequired) {
-            // Step 1 passed — move to the emailed-code step.
-            loginState.challenge = data.challenge;
-            messageEl.className = 'login-message';
-            messageEl.textContent = '';
-            document.getElementById('loginPassword').value = '';
-            showOtpStep(data);
-        } else if (response.ok && data.success) {
-            // Fallback: server returned a token directly (OTP disabled).
-            completeLogin(data, messageEl);
+        if (response.ok && data.success) {
+            dashboardAuth.isLoggedIn = true;
+            dashboardAuth.currentUser = data.user;
+            dashboardAuth.token = data.token;
+
+            localStorage.setItem('dashboardAuthState', JSON.stringify(dashboardAuth));
+
+            messageEl.className = 'login-message success';
+            messageEl.textContent = 'Login successful! Loading your dashboard...';
+
+            setTimeout(() => {
+                showDashboard();
+            }, 1200);
         } else {
             messageEl.className = 'login-message error';
-            messageEl.textContent = data.detail || data.error || 'Invalid username or password';
+            messageEl.textContent = data.error || 'Invalid username or password';
             document.getElementById('loginPassword').value = '';
 
             setTimeout(() => {
@@ -4687,182 +4666,6 @@ async function handleLogin(e) {
     }
 }
 
-function completeLogin(data, messageEl) {
-    dashboardAuth.isLoggedIn = true;
-    dashboardAuth.currentUser = data.user;
-    dashboardAuth.token = data.token;
-    window.dashboardAuth = dashboardAuth;
-
-    localStorage.setItem('dashboardAuthState', JSON.stringify(dashboardAuth));
-
-    if (messageEl) {
-        messageEl.className = 'login-message success';
-        messageEl.textContent = 'Login successful! Loading your dashboard...';
-    }
-
-    loginState.challenge = null;
-    setTimeout(() => {
-        showDashboard();
-    }, 1200);
-}
-
-function showOtpStep(data) {
-    const loginForm = document.getElementById('loginForm');
-    const otpForm = document.getElementById('otpForm');
-    const sentInfo = document.getElementById('otpSentInfo');
-    const otpInput = document.getElementById('otpCode');
-    const otpMessage = document.getElementById('otpMessage');
-
-    if (loginForm) loginForm.style.display = 'none';
-    if (otpForm) otpForm.style.display = 'block';
-    if (otpMessage) { otpMessage.className = 'login-message'; otpMessage.textContent = ''; }
-
-    if (sentInfo) {
-        let text = data.email
-            ? `We emailed a verification code to ${data.email}.`
-            : 'Enter the verification code we emailed you.';
-        // Dev fallback: server exposed the code because no mailbox is configured.
-        if (data.devOtp) text += ` (dev code: ${data.devOtp})`;
-        sentInfo.textContent = text;
-    }
-
-    if (otpInput) {
-        otpInput.value = '';
-        otpInput.focus();
-    }
-}
-
-async function handleVerifyOtp(e) {
-    e.preventDefault();
-    if (loginState.busy) return;
-
-    const otpForm = document.getElementById('otpForm');
-    const otpInput = document.getElementById('otpCode');
-    const messageEl = document.getElementById('otpMessage');
-    const submitBtn = otpForm ? otpForm.querySelector('.login-btn') : null;
-    const otp = otpInput ? otpInput.value.trim() : '';
-
-    messageEl.className = 'login-message';
-    messageEl.textContent = '';
-
-    if (!otp) {
-        messageEl.className = 'login-message error';
-        messageEl.textContent = 'Enter the code from your email.';
-        if (otpInput) otpInput.focus();
-        return;
-    }
-    if (!loginState.challenge) {
-        backToCredentials();
-        return;
-    }
-
-    let done = false;
-    loginState.busy = true;
-    if (submitBtn) submitBtn.disabled = true;
-    try {
-        const apiBaseUrl = typeof window.API_BASE_URL !== 'undefined' ? window.API_BASE_URL : 'http://localhost:3000';
-        const response = await fetch(`${apiBaseUrl}/auth/verify-otp`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ challenge: loginState.challenge, otp })
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-            done = true; // stay locked out — we're navigating to the dashboard
-            completeLogin(data, messageEl);
-            return;
-        }
-
-        messageEl.className = 'login-message error';
-        messageEl.textContent = data.detail || data.error || 'Invalid code';
-
-        // 410 (dead challenge) / 429 (too many attempts) → restart login.
-        if (response.status === 410 || response.status === 429) {
-            done = true;
-            setTimeout(backToCredentials, 1800);
-        } else if (otpInput) {
-            // Retryable wrong code — clear and refocus for another try.
-            otpInput.value = '';
-            otpInput.focus();
-        }
-    } catch (error) {
-        console.error('OTP verification error:', error);
-        messageEl.className = 'login-message error';
-        messageEl.textContent = 'Server error. Please try again.';
-    } finally {
-        if (!done) {
-            loginState.busy = false;
-            if (submitBtn) submitBtn.disabled = false;
-        }
-    }
-}
-
-async function handleResendOtp() {
-    if (loginState.busy) return;
-
-    const messageEl = document.getElementById('otpMessage');
-    const sentInfo = document.getElementById('otpSentInfo');
-    const otpInput = document.getElementById('otpCode');
-    const resendBtn = document.getElementById('otpResendBtn');
-
-    if (!loginState.challenge) {
-        backToCredentials();
-        return;
-    }
-
-    loginState.busy = true;
-    if (resendBtn) resendBtn.disabled = true;
-    messageEl.className = 'login-message';
-    messageEl.textContent = 'Sending a new code...';
-
-    try {
-        const apiBaseUrl = typeof window.API_BASE_URL !== 'undefined' ? window.API_BASE_URL : 'http://localhost:3000';
-        const response = await fetch(`${apiBaseUrl}/auth/resend-otp`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ challenge: loginState.challenge })
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-            messageEl.className = 'login-message success';
-            messageEl.textContent = 'A new code is on its way.';
-            if (data.devOtp && sentInfo) {
-                sentInfo.textContent = `We emailed a verification code to ${data.email || 'your email'}. (dev code: ${data.devOtp})`;
-            }
-            // Drop any stale wrong code from the field and refocus.
-            if (otpInput) { otpInput.value = ''; otpInput.focus(); }
-        } else {
-            messageEl.className = 'login-message error';
-            messageEl.textContent = data.detail || data.error || 'Could not resend code';
-            if (response.status === 410) setTimeout(backToCredentials, 1500);
-        }
-    } catch (error) {
-        console.error('Resend OTP error:', error);
-        messageEl.className = 'login-message error';
-        messageEl.textContent = 'Server error. Please try again.';
-    } finally {
-        loginState.busy = false;
-        if (resendBtn) resendBtn.disabled = false;
-    }
-}
-
-function backToCredentials() {
-    loginState.challenge = null;
-    const loginForm = document.getElementById('loginForm');
-    const otpForm = document.getElementById('otpForm');
-    const otpMessage = document.getElementById('otpMessage');
-    const otpInput = document.getElementById('otpCode');
-
-    if (otpForm) otpForm.style.display = 'none';
-    if (loginForm) loginForm.style.display = 'block';
-    if (otpMessage) { otpMessage.className = 'login-message'; otpMessage.textContent = ''; }
-    if (otpInput) otpInput.value = '';
-}
-
 function showLoginScreen() {
     const loginScreen = document.getElementById('loginScreen');
     const mainApp = document.getElementById('mainApp');
@@ -4871,17 +4674,6 @@ function showLoginScreen() {
     if (loginScreen) loginScreen.style.display = 'flex';
     if (mainApp) mainApp.style.display = 'none';
     if (logoutContainer) logoutContainer.style.display = 'none';
-
-    // Always reset to the credentials step (in case we were mid-OTP).
-    loginState.challenge = null;
-    const loginForm = document.getElementById('loginForm');
-    const otpForm = document.getElementById('otpForm');
-    if (otpForm) otpForm.style.display = 'none';
-    if (loginForm) loginForm.style.display = 'block';
-
-    // Ensure form handlers are bound (idempotent) — covers the auto-login→logout
-    // path where setupLoginHandlers() was never reached on this page load.
-    setupLoginHandlers();
 }
 
 function showDashboard() {

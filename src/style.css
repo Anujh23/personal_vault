@@ -3629,44 +3629,6 @@ textarea.form-input {
   border: 1px solid rgba(var(--color-success-rgb), 0.2);
 }
 
-.otp-sent-info {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  text-align: center;
-  margin: 0 0 var(--space-20) 0;
-  line-height: 1.5;
-}
-
-#otpCode {
-  text-align: center;
-  letter-spacing: 0.4em;
-  font-size: var(--font-size-xl);
-  font-weight: var(--font-weight-semibold);
-}
-
-.otp-actions {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-12);
-  margin-top: var(--space-16);
-}
-
-.otp-link {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--color-primary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: color var(--duration-fast) var(--ease-standard);
-}
-
-.otp-link:hover {
-  color: var(--color-sky-700);
-  text-decoration: underline;
-}
-
 .login-credentials {
   text-align: center;
   margin-top: var(--space-20);
