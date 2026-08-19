@@ -471,14 +471,14 @@ class DataManager {
                 icon: "📊",
                 fields: [
                     { name: 'family_member_id', label: 'Linked Person', type: 'family_member_select' },
-                    { name: 'name', label: 'Investment Name', type: 'text', required: true },
-                    { name: 'stock_name', label: 'Stock Name', type: 'text' },
+                    { name: 'name', label: 'Stock Name', type: 'text', required: true },
+                    { name: 'stock_name', label: 'Symbol (NSE)', type: 'text', placeholder: 'e.g. UJJIVANSFB, LTF' },
+                    { name: 'quantity', label: '# Shares', type: 'number', step: '1' },
+                    { name: 'at_price', label: 'Hold Price (Avg Buy)', type: 'number', step: '0.01' },
+                    { name: 'value', label: 'Manual Price (fallback)', type: 'number', step: '0.01' },
                     { name: 'investment_type', label: 'Investment Type', type: 'select', options: ['Equity', 'Mutual Fund', 'Bond', 'ETF', 'Commodity'] },
-                    { name: 'entity_name', label: 'Entity Name', type: 'text' },
-                    { name: 'value', label: 'Current Value', type: 'number', step: '0.01' },
-                    { name: 'at_price', label: 'Purchase Price', type: 'number', step: '0.01' },
                     { name: 'status', label: 'Status', type: 'select', options: ['Active', 'Sold', 'Hold'] },
-                    { name: 'profit_loss', label: 'Profit/Loss', type: 'number', step: '0.01' },
+                    { name: 'entity_name', label: 'Entity Name', type: 'text' },
                     { name: 'filter_name', label: 'Filter Name', type: 'text' }
                 ]
             },
@@ -1616,6 +1616,11 @@ class DataManager {
             // Create table headers
             this.createTableHeaders(table, tableName);
 
+            // Stocks: fetch live prices before rendering so computed cells have data
+            if (tableName === 'stocks') {
+                await this.loadStockQuotes(this.filteredData);
+            }
+
             // Load table data
             await this.renderTableData();
 
@@ -1625,6 +1630,8 @@ class DataManager {
             // Render special visualizations for specific tables
             if (tableName === 'shareholdings') {
                 this.renderShareholdingsChart(this.filteredData);
+            } else if (tableName === 'stocks') {
+                this.renderStocksSummary(this.filteredData);
             } else {
                 this.clearTableChart();
             }
@@ -1678,6 +1685,24 @@ class DataManager {
             // Specialized headers for Cards - no ID column
             displayFields = table.fields.slice(0); // Show all fields
             headers = [...displayFields.map(f => f.label), 'Files', 'Actions'];
+        } else if (tableName === 'stocks') {
+            displayFields = table.fields.slice(0);
+            this.stockColumns = [
+                { label: 'Linked Person', key: 'person' },
+                { label: 'Symbol', key: 'symbol' },
+                { label: 'Stock Name', key: 'name' },
+                { label: 'Current Price', key: 'price' },
+                { label: 'Change', key: 'change' },
+                { label: '% Change', key: 'pct' },
+                { label: '# Shares', key: 'shares' },
+                { label: 'Current Value', key: 'cv' },
+                { label: 'Hold Price', key: 'hold' },
+                { label: 'Hold Value', key: 'hv' },
+                { label: 'P&L', key: 'pnl' },
+                { label: 'Files', key: null },
+                { label: 'Actions', key: null },
+            ];
+            headers = this.stockColumns.map(c => c.label);
         } else {
             displayFields = table.fields.slice(0); // Show all fields in table
             headers = ['ID', ...displayFields.map(f => f.label), 'Files', 'Actions'];
@@ -1691,6 +1716,14 @@ class DataManager {
         thead.innerHTML = `
             <tr>
                 ${headers.map((header, index) => {
+            // Stocks: sortable headers (click to toggle asc/desc), no text filters
+            if (tableName === 'stocks') {
+                const col = (this.stockColumns || [])[index];
+                if (!col || !col.key) return `<th>${header}</th>`;
+                const st = this.stockSort || {};
+                const arrow = st.key === col.key ? (st.dir === 1 ? ' ▲' : ' ▼') : '';
+                return `<th class="sortable" onclick="app.sortStocks('${col.key}')" title="Sort by ${header}">${header}${arrow}</th>`;
+            }
             // Don't add filter for Actions or Files column
             if (header === 'Actions' || header === 'Files') {
                 return `<th>${header}</th>`;
@@ -1871,8 +1904,10 @@ class DataManager {
             return;
         }
 
-        const startIndex = (this.currentPage - 1) * this.recordsPerPage;
-        const endIndex = startIndex + this.recordsPerPage;
+        // Stocks: show the whole portfolio on one page (no 10-per-page paging)
+        const perPage = this.currentTable === 'stocks' ? Math.max(this.filteredData.length, 1) : this.recordsPerPage;
+        const startIndex = (this.currentPage - 1) * perPage;
+        const endIndex = startIndex + perPage;
         const pageData = this.filteredData.slice(startIndex, endIndex);
 
         tbody.innerHTML = '';
@@ -1894,6 +1929,7 @@ class DataManager {
                 console.warn('Failed to load family members:', e);
             }
         }
+        this._familyMembers = familyMembers;
 
         pageData.forEach(record => {
             const row = document.createElement('tr');
@@ -2019,6 +2055,10 @@ class DataManager {
                         </div>
                     </td>
                 `;
+            } else if (this.currentTable === 'stocks') {
+                // Portfolio view — computed live from Yahoo quotes + hold price
+                row.innerHTML = this.renderStockRow(record, familyMembers);
+                this.loadRecordFiles(this.currentTable, record.id);
             } else {
                 // Standard rendering for all other tables (personal_info, family_members, etc.)
                 const displayFields = this.currentDisplayFields || [];
@@ -2071,9 +2111,181 @@ class DataManager {
         this.updatePagination();
     }
 
+    // ─── Stocks portfolio: live quotes + computed P&L ────────────────
+    async loadStockQuotes(data) {
+        this.stockQuotes = {};
+        const symbols = [...new Set((data || [])
+            .map(r => (r.stock_name || '').trim().toUpperCase())
+            .filter(Boolean))];
+        if (!symbols.length) return;
+        try {
+            const res = await this.apiRequest(
+                `/api/stock-quotes?symbols=${encodeURIComponent(symbols.join(','))}`,
+                'GET', null, { showLoader: false }
+            );
+            if (res && res.quotes) this.stockQuotes = res.quotes;
+        } catch (e) {
+            console.warn('Stock quotes fetch failed:', e);
+        }
+    }
+
+    _stockCalc(record) {
+        const symbol = (record.stock_name || '').trim();
+        const q = this.stockQuotes ? this.stockQuotes[symbol.toUpperCase()] : null;
+        const livePrice = q && q.price != null ? Number(q.price) : null;
+        const manualPrice = (record.value != null && record.value !== '') ? Number(record.value) : null;
+        const price = livePrice != null ? livePrice : manualPrice;
+        const shares = Number(record.quantity) || 0;
+        const holdPrice = (record.at_price != null && record.at_price !== '') ? Number(record.at_price) : null;
+        const currentValue = price != null ? price * shares : null;
+        const holdValue = holdPrice != null ? holdPrice * shares : null;
+        const pnl = (currentValue != null && holdValue != null) ? currentValue - holdValue : null;
+        return {
+            symbol, name: record.name || '', shares, price, livePrice, manualPrice, holdPrice,
+            currentValue, holdValue, pnl,
+            change: q && q.change != null ? Number(q.change) : null,
+            changePct: q && q.changePercent != null ? Number(q.changePercent) : null,
+        };
+    }
+
+    _money(n) {
+        if (n == null || isNaN(n)) return '—';
+        return '₹' + Number(n).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    _num(n, dec = 2) {
+        if (n == null || isNaN(n)) return '—';
+        return Number(n).toLocaleString('en-IN', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    }
+
+    renderStockRow(record, familyMembers = []) {
+        const c = this._stockCalc(record);
+        const member = (familyMembers || []).find(m => m.id == record.family_member_id);
+        const person = member ? member.name : (record.family_member_id ? `ID ${record.family_member_id}` : '—');
+        // The stock display name: use `name`, but if it's blank or is just the
+        // linked person's name (legacy data), fall back to the symbol.
+        let displayName = (record.name || '').trim();
+        if (!displayName || (member && displayName.toLowerCase() === String(member.name || '').toLowerCase())) {
+            displayName = c.symbol || '—';
+        }
+        const sign = v => (v == null ? '' : (v >= 0 ? 'pos' : 'neg'));
+        const priceCell = c.price != null
+            ? this._money(c.price) + (c.livePrice == null && c.manualPrice != null
+                ? ' <span class="px-manual" title="manual price — no live quote">~</span>' : '')
+            : '—';
+        const changeTxt = c.change != null ? (c.change >= 0 ? '+' : '') + this._num(c.change) : '—';
+        const pctTxt = c.changePct != null ? (c.changePct >= 0 ? '+' : '') + this._num(c.changePct) + '%' : '—';
+        const pnlTxt = c.pnl != null ? this._money(Math.abs(c.pnl)) + (c.pnl >= 0 ? ' ▲' : ' ▼') : '—';
+        return `
+            <td title="${this.escapeHtml(person)}"><span class="cell-content">${this.truncateText(person, 20)}</span></td>
+            <td><span class="stock-symbol">${this.escapeHtml(c.symbol) || '—'}</span></td>
+            <td title="${this.escapeHtml(displayName)}"><span class="cell-content">${this.truncateText(displayName, 26)}</span></td>
+            <td class="num">${priceCell}</td>
+            <td class="num ${sign(c.change)}">${changeTxt}</td>
+            <td class="num ${sign(c.changePct)}">${pctTxt}</td>
+            <td class="num">${c.shares ? c.shares.toLocaleString('en-IN') : '—'}</td>
+            <td class="num">${this._money(c.currentValue)}</td>
+            <td class="num">${this._money(c.holdPrice)}</td>
+            <td class="num">${this._money(c.holdValue)}</td>
+            <td class="num ${sign(c.pnl)} pnl-cell">${pnlTxt}</td>
+            <td class="files-cell">
+                <div class="file-actions" id="files-${record.id}">
+                    <button class="file-btn upload" onclick="app.uploadFileToRecord('${this.currentTable}', '${record.id}')" title="Upload File">📎</button>
+                    <button class="file-btn view" onclick="app.viewFilesForRecord('${this.currentTable}', '${record.id}')" title="View Files">📁</button>
+                    <span class="file-count" id="file-count-${record.id}" style="display:none">0</span>
+                </div>
+            </td>
+            <td class="actions-cell">
+                <div class="action-buttons">
+                    <button class="action-btn-small view-btn" onclick="app.viewRecord('${record.id}')" title="View Details">👁️</button>
+                    <button class="action-btn-small edit-btn" onclick="app.editRecord('${record.id}')" title="Edit Record">✏️</button>
+                    <button class="action-btn-small delete-btn" onclick="app.deleteRecord('${record.id}')" title="Delete Record">🗑️</button>
+                </div>
+            </td>
+        `;
+    }
+
+    renderStocksSummary(data) {
+        const container = document.getElementById('tableChartContainer');
+        if (!container) return;
+        let invested = 0, current = 0, pnl = 0, comparableHold = 0, priced = 0;
+        const total = (data || []).length;
+        (data || []).forEach(r => {
+            const c = this._stockCalc(r);
+            if (c.holdValue != null) invested += c.holdValue;
+            if (c.currentValue != null) { current += c.currentValue; priced++; }
+            if (c.pnl != null) { pnl += c.pnl; comparableHold += c.holdValue; }
+        });
+        const pnlPct = comparableHold ? (pnl / comparableHold * 100) : null;
+        const cls = pnl >= 0 ? 'pos' : 'neg';
+        const arrow = pnl >= 0 ? '▲' : '▼';
+        container.style.display = 'block';
+        container.innerHTML = `
+            <div class="stocks-summary">
+                <div class="stock-tile">
+                    <div class="tile-label">Invested (Hold Value)</div>
+                    <div class="tile-value">${this._money(invested)}</div>
+                </div>
+                <div class="stock-tile">
+                    <div class="tile-label">Current Value</div>
+                    <div class="tile-value">${this._money(current)}</div>
+                </div>
+                <div class="stock-tile ${cls}">
+                    <div class="tile-label">Overall P&amp;L</div>
+                    <div class="tile-value">${this._money(Math.abs(pnl))} ${arrow}${pnlPct != null ? ` <span class="tile-pct">(${pnl >= 0 ? '+' : '−'}${this._num(Math.abs(pnlPct))}%)</span>` : ''}</div>
+                </div>
+                <div class="stock-tile muted">
+                    <div class="tile-label">Live Prices</div>
+                    <div class="tile-value">${priced}/${total} <span class="tile-pct">fetched</span></div>
+                </div>
+            </div>
+        `;
+    }
+
+    sortStocks(key) {
+        if (this.stockSort && this.stockSort.key === key) {
+            this.stockSort.dir *= -1;          // same column → flip direction
+        } else {
+            this.stockSort = { key, dir: 1 };   // new column → ascending
+        }
+        const dir = this.stockSort.dir;
+        const fam = this._familyMembers || [];
+        const valueOf = (r) => {
+            const c = this._stockCalc(r);
+            switch (key) {
+                case 'person': { const m = fam.find(x => x.id == r.family_member_id); return (m ? m.name : '').toLowerCase(); }
+                case 'symbol': return (r.stock_name || '').toLowerCase();
+                case 'name': return (r.name || '').toLowerCase();
+                case 'price': return c.price;
+                case 'change': return c.change;
+                case 'pct': return c.changePct;
+                case 'shares': return c.shares;
+                case 'cv': return c.currentValue;
+                case 'hold': return c.holdPrice;
+                case 'hv': return c.holdValue;
+                case 'pnl': return c.pnl;
+                default: return null;
+            }
+        };
+        this.filteredData.sort((a, b) => {
+            const va = valueOf(a), vb = valueOf(b);
+            if (va == null && vb == null) return 0;
+            if (va == null) return 1;   // blanks always sort last
+            if (vb == null) return -1;
+            if (typeof va === 'string' || typeof vb === 'string') {
+                return dir * String(va).localeCompare(String(vb));
+            }
+            return dir * (va - vb);
+        });
+        this.currentPage = 1;
+        this.createTableHeaders(this.tables['stocks'], 'stocks');
+        this.renderTableData();
+    }
+
     // NEW: Update pagination controls
     updatePagination() {
-        const totalPages = Math.ceil(this.filteredData.length / this.recordsPerPage) || 1;
+        const perPage = this.currentTable === 'stocks' ? Math.max(this.filteredData.length, 1) : this.recordsPerPage;
+        const totalPages = Math.ceil(this.filteredData.length / perPage) || 1;
         const currentPageEl = document.getElementById('currentPage');
         const totalPagesEl = document.getElementById('totalPages');
 
@@ -3015,7 +3227,7 @@ class DataManager {
         }
         try {
             // Files table uses different endpoint (/files instead of /api/files)
-            const endpoint = tableName === 'files' ? '/files' : `/api/${tableName}`;
+            const endpoint = tableName === 'files' ? '/files' : `/api/${tableName}?limit=500`;
             const result = await this.apiRequest(endpoint, 'GET', null, { showLoader });
             return result.data || result.files || [];
         } catch (error) {

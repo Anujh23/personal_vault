@@ -50,6 +50,15 @@ async def init_pool():
             await asyncio.sleep(5)
 
 
+async def ensure_schema():
+    """Idempotent schema tweaks this app owns (safe to run on every startup)."""
+    p = await get_pool()
+    async with p.acquire() as conn:
+        # # Shares for the stocks portfolio view.
+        await conn.execute("ALTER TABLE stocks ADD COLUMN IF NOT EXISTS quantity NUMERIC")
+    logger.info("Schema ensured (stocks.quantity)")
+
+
 async def close_pool():
     global pool
     if pool:

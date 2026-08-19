@@ -1,6 +1,11 @@
 import json
 import asyncio
 import logging
+import time
+import http.cookiejar
+import urllib.request
+import urllib.parse
+import urllib.error
 from datetime import date as date_type, datetime, timezone
 from decimal import Decimal, InvalidOperation
 from fastapi import APIRouter, Depends, HTTPException, Request, Query
@@ -38,7 +43,7 @@ TABLE_CONFIG = {
         "required": ["name"],
     },
     "stocks": {
-        "columns": ["family_member_id", "name", "stock_name", "investment_type", "entity_name", "value", "at_price", "status", "profit_loss", "filter_name"],
+        "columns": ["family_member_id", "name", "stock_name", "investment_type", "entity_name", "value", "at_price", "quantity", "status", "profit_loss", "filter_name"],
         "required": ["name"],
     },
     "policies": {
@@ -198,6 +203,129 @@ async def activity_logs(
         limit,
     )
     return {"success": True, "data": _rows_to_list(rows)}
+
+
+# ─── Live stock quotes (must be before /{table} to avoid capture) ──
+# One crumb-authenticated Yahoo batch call for all symbols (fast), with a
+# per-symbol chart fallback for anything the batch can't price, and a short
+# result cache so repeated section opens / sorts don't refetch.
+_YAHOO_CHART = "https://query1.finance.yahoo.com/v8/finance/chart/{sym}?interval=1d&range=1d"
+_QUOTE_TTL = 30.0
+_quote_cache: dict[str, tuple[float, dict]] = {}
+_yahoo: dict = {"opener": None, "crumb": None}
+
+
+def _to_yahoo(symbol: str) -> str:
+    return symbol if "." in symbol else f"{symbol}.NS"
+
+
+def _yahoo_session(force: bool = False):
+    """Cached (cookie, crumb) session needed by Yahoo's v7 batch endpoint."""
+    if force or _yahoo["opener"] is None or not _yahoo["crumb"]:
+        jar = http.cookiejar.CookieJar()
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+        opener.addheaders = [("User-Agent", "Mozilla/5.0")]
+        try:
+            opener.open("https://fc.yahoo.com/", timeout=8).read()
+        except Exception:
+            pass  # request may 404 but still sets the consent cookie
+        crumb = opener.open(
+            "https://query1.finance.yahoo.com/v1/test/getcrumb", timeout=8
+        ).read().decode("utf-8").strip()
+        _yahoo["opener"], _yahoo["crumb"] = opener, crumb
+    return _yahoo["opener"], _yahoo["crumb"]
+
+
+def _batch_quotes_sync(yahoo_syms: list) -> dict:
+    """One Yahoo v7 batch call. Returns {YAHOO_SYMBOL: quote}."""
+    opener, crumb = _yahoo_session()
+    q = urllib.parse.quote(",".join(yahoo_syms))
+
+    def _call(cr):
+        url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={q}&crumb={urllib.parse.quote(cr)}"
+        with opener.open(url, timeout=12) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+
+    try:
+        data = _call(crumb)
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):  # crumb expired — refresh once
+            opener, crumb = _yahoo_session(force=True)
+            data = _call(crumb)
+        else:
+            raise
+
+    out = {}
+    for x in data.get("quoteResponse", {}).get("result", []):
+        out[str(x.get("symbol", "")).upper()] = {
+            "price": x.get("regularMarketPrice"),
+            "previousClose": x.get("regularMarketPreviousClose"),
+            "change": x.get("regularMarketChange"),
+            "changePercent": x.get("regularMarketChangePercent"),
+            "currency": x.get("currency"),
+        }
+    return out
+
+
+def _fetch_quote_sync(symbol: str) -> dict:
+    """Per-symbol fallback via the v8 chart endpoint (no crumb needed)."""
+    url = _YAHOO_CHART.format(sym=urllib.parse.quote(_to_yahoo(symbol)))
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        meta = json.loads(resp.read().decode("utf-8"))["chart"]["result"][0]["meta"]
+    price = meta.get("regularMarketPrice")
+    prev = meta.get("chartPreviousClose") or meta.get("previousClose")
+    change = (price - prev) if (price is not None and prev is not None) else None
+    pct = (change / prev * 100) if (change is not None and prev) else None
+    return {"price": price, "previousClose": prev, "change": change, "changePercent": pct, "currency": meta.get("currency")}
+
+
+@router.get("/stock-quotes")
+async def stock_quotes(symbols: str = Query(...), user: dict = Depends(get_current_user)):
+    """Live quotes for comma-separated symbols: cache -> batch -> per-symbol fallback."""
+    wanted = [s.strip().upper() for s in symbols.split(",") if s.strip()][:120]
+    now = time.time()
+
+    quotes: dict = {}
+    to_fetch = []
+    for s in wanted:
+        cached = _quote_cache.get(s)
+        if cached and now - cached[0] < _QUOTE_TTL:
+            quotes[s] = cached[1]
+        else:
+            to_fetch.append(s)
+
+    if to_fetch:
+        y2i = {_to_yahoo(s).upper(): s for s in to_fetch}  # yahoo symbol -> input
+        got: dict = {}
+        try:
+            batch = await asyncio.to_thread(_batch_quotes_sync, list(y2i.keys()))
+            for ysym, quote in batch.items():
+                inp = y2i.get(ysym)
+                if inp and quote.get("price") is not None:
+                    got[inp] = {"symbol": inp, **quote}
+        except Exception as e:
+            logger.warning("Batch quote failed: %s", e)
+
+        missing = [s for s in to_fetch if s not in got]
+
+        async def one(sym: str):
+            try:
+                return sym, {"symbol": sym, **(await asyncio.to_thread(_fetch_quote_sync, sym))}
+            except Exception as e:
+                logger.warning("Quote fetch failed for %s: %s", sym, e)
+                return sym, {"symbol": sym, "price": None, "error": str(e)}
+
+        if missing:
+            for sym, quote in await asyncio.gather(*[one(s) for s in missing]):
+                got[sym] = quote
+
+        for s, quote in got.items():
+            if quote.get("price") is not None:
+                _quote_cache[s] = (now, quote)
+            quotes[s] = quote
+
+    return {"success": True, "quotes": quotes}
 
 
 # ─── LIST all records ──────────────────────────────────────────────
