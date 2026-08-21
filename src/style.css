@@ -3629,6 +3629,53 @@ textarea.form-input {
   border: 1px solid rgba(var(--color-success-rgb), 0.2);
 }
 
+.otp-sent-info {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  text-align: center;
+  margin: 0 0 var(--space-20) 0;
+  line-height: 1.5;
+}
+
+#totpCode {
+  text-align: center;
+  letter-spacing: 0.4em;
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-semibold);
+}
+
+.otp-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-12);
+}
+
+.otp-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+
+.otp-link:hover { text-decoration: underline; }
+
+/* Two-factor setup modal */
+.twofa-qr { display: flex; justify-content: center; margin: var(--space-16) 0; }
+.twofa-qr img { width: 180px; height: 180px; background: #fff; padding: 8px; border-radius: var(--radius-base); }
+.twofa-secret { text-align: center; font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.twofa-secret code {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: var(--color-secondary);
+  border-radius: var(--radius-base);
+  letter-spacing: 0.1em;
+  word-break: break-all;
+}
+
 /* ─── Stocks portfolio ─────────────────────────────────────────── */
 .stocks-summary {
   display: grid;

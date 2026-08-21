@@ -74,6 +74,23 @@
                 </button>
                 <div id="loginMessage" class="login-message"></div>
             </form>
+
+            <!-- TOTP (authenticator) second-factor step -->
+            <form id="totpForm" class="login-form" style="display: none;">
+                <p class="otp-sent-info">Enter the 6-digit code from your authenticator app.</p>
+                <div class="input-group">
+                    <label for="totpCode">Authenticator code</label>
+                    <input type="text" id="totpCode" inputmode="numeric" autocomplete="one-time-code"
+                        pattern="[0-9]*" maxlength="6" placeholder="6-digit code">
+                </div>
+                <button type="submit" class="login-btn">
+                    <span class="btn-text">Verify &amp; Login</span>
+                </button>
+                <div class="otp-actions">
+                    <button type="button" id="totpBackBtn" class="otp-link">Back to login</button>
+                </div>
+                <div id="totpMessage" class="login-message"></div>
+            </form>
         </div>
     </div>
 
@@ -245,6 +262,10 @@
                                     </div>
                                 </div>
                                 <div class="user-dropdown-divider"></div>
+                                <button class="dropdown-item" id="twoFABtn">
+                                    <i data-lucide="shield-check"></i>
+                                    <span>Two-Factor Auth</span>
+                                </button>
                                 <button class="dropdown-item" id="logoutBtn">
                                     <i data-lucide="log-out"></i>
                                     <span>Logout</span>
@@ -618,6 +639,17 @@
             </div>
         </div>
 
+        <!-- Two-Factor Auth Modal -->
+        <div id="twoFAModalOverlay" class="modal-overlay">
+            <div class="modal">
+                <div class="modal-header">
+                    <h3>Two-Factor Authentication</h3>
+                    <button type="button" id="twoFAClose" class="modal-close">&times;</button>
+                </div>
+                <div id="twoFABody" class="modal-body"></div>
+            </div>
+        </div>
+
         <!-- Toast Container -->
         <div id="toastContainer" class="toast-container">
             <!-- Toast notifications will appear here -->
@@ -627,7 +659,7 @@
         <input type="file" id="importFileInput" accept=".json,.csv" style="display: none;">
 
         <!-- Scripts -->
-        <script src="/src/app.js?v=8" type="module"></script>
+        <script src="/src/app.js?v=12" type="module"></script>
         <!-- Reminder Components -->
         <script src="/js/components/reminderIndicators.js"></script>
 

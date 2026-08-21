@@ -4753,6 +4753,7 @@ let dashboardAuth = {
 
 document.addEventListener('DOMContentLoaded', function () {
     initializeLogin();
+    setup2FAControls();
 });
 
 function initializeLogin() {
@@ -4819,6 +4820,210 @@ function setupLoginHandlers() {
             handleLogin(e);
         });
     }
+    const totpForm = document.getElementById('totpForm');
+    if (totpForm && !totpForm.dataset.bound) {
+        totpForm.addEventListener('submit', function (e) { e.preventDefault(); handleTotpVerify(e); });
+        totpForm.dataset.bound = 'true';
+    }
+    const totpBack = document.getElementById('totpBackBtn');
+    if (totpBack && !totpBack.dataset.bound) {
+        totpBack.addEventListener('click', totpBackToLogin);
+        totpBack.dataset.bound = 'true';
+    }
+}
+
+// ─── Authenticator (TOTP) second-factor at login ────────────────
+function showTotpStep() {
+    const loginForm = document.getElementById('loginForm');
+    const totpForm = document.getElementById('totpForm');
+    const totpInput = document.getElementById('totpCode');
+    const totpMsg = document.getElementById('totpMessage');
+    if (loginForm) loginForm.style.display = 'none';
+    if (totpForm) totpForm.style.display = 'block';
+    if (totpMsg) { totpMsg.className = 'login-message'; totpMsg.textContent = ''; }
+    if (totpInput) { totpInput.value = ''; totpInput.focus(); }
+}
+
+async function handleTotpVerify(e) {
+    e.preventDefault();
+    const input = document.getElementById('totpCode');
+    const msg = document.getElementById('totpMessage');
+    const code = input ? input.value.trim() : '';
+    msg.className = 'login-message';
+    msg.textContent = '';
+    if (!code) { msg.className = 'login-message error'; msg.textContent = 'Enter the 6-digit code.'; if (input) input.focus(); return; }
+    if (!window._twoFAToken) { totpBackToLogin(); return; }
+    try {
+        const apiBaseUrl = typeof window.API_BASE_URL !== 'undefined' ? window.API_BASE_URL : 'http://localhost:3000';
+        const res = await fetch(`${apiBaseUrl}/auth/2fa/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ twoFAToken: window._twoFAToken, code })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            dashboardAuth.isLoggedIn = true;
+            dashboardAuth.currentUser = data.user;
+            dashboardAuth.token = data.token;
+            window.dashboardAuth = dashboardAuth;
+            localStorage.setItem('dashboardAuthState', JSON.stringify(dashboardAuth));
+            window._twoFAToken = null;
+            msg.className = 'login-message success';
+            msg.textContent = 'Login successful! Loading your dashboard...';
+            setTimeout(() => showDashboard(), 1000);
+        } else {
+            msg.className = 'login-message error';
+            msg.textContent = data.detail || data.error || 'Invalid code';
+            if (res.status === 401 && String(data.detail || '').toLowerCase().includes('session')) {
+                setTimeout(totpBackToLogin, 1500);
+            } else if (input) { input.value = ''; input.focus(); }
+        }
+    } catch (err) {
+        console.error('2FA verify error:', err);
+        msg.className = 'login-message error';
+        msg.textContent = 'Server error. Please try again.';
+    }
+}
+
+function totpBackToLogin() {
+    window._twoFAToken = null;
+    const loginForm = document.getElementById('loginForm');
+    const totpForm = document.getElementById('totpForm');
+    const totpInput = document.getElementById('totpCode');
+    if (totpForm) totpForm.style.display = 'none';
+    if (loginForm) loginForm.style.display = 'block';
+    if (totpInput) totpInput.value = '';
+}
+
+// ─── 2FA setup / disable (in-app settings modal) ─────────────────
+function _authHeaders() {
+    const t = window.dashboardAuth && window.dashboardAuth.token ? window.dashboardAuth.token : '';
+    return { 'Content-Type': 'application/json', ...(t ? { 'Authorization': `Bearer ${t}` } : {}) };
+}
+
+function setup2FAControls() {
+    const btn = document.getElementById('twoFABtn');
+    if (btn && !btn.dataset.bound) {
+        btn.addEventListener('click', () => {
+            const menu = document.getElementById('userMenu');
+            if (menu) menu.classList.remove('active');
+            open2FAModal();
+        });
+        btn.dataset.bound = 'true';
+    }
+    const close = document.getElementById('twoFAClose');
+    if (close && !close.dataset.bound) { close.addEventListener('click', close2FAModal); close.dataset.bound = 'true'; }
+    const overlay = document.getElementById('twoFAModalOverlay');
+    if (overlay && !overlay.dataset.bound) {
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) close2FAModal(); });
+        overlay.dataset.bound = 'true';
+    }
+}
+
+function close2FAModal() {
+    const overlay = document.getElementById('twoFAModalOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+async function open2FAModal() {
+    const overlay = document.getElementById('twoFAModalOverlay');
+    const body = document.getElementById('twoFABody');
+    if (!overlay || !body) return;
+    overlay.style.display = 'flex';
+    body.innerHTML = '<p>Loading…</p>';
+    try {
+        const api = window.API_BASE_URL || '';
+        const res = await fetch(`${api}/auth/2fa/status`, { headers: _authHeaders() });
+        const data = await res.json();
+        if (data.enabled) render2FAEnabledView(body);
+        else await render2FASetupView(body);
+    } catch (e) {
+        body.innerHTML = '<div class="login-message error">Could not load 2FA settings.</div>';
+    }
+}
+
+async function render2FASetupView(body) {
+    body.innerHTML = '<p>Preparing setup…</p>';
+    const api = window.API_BASE_URL || '';
+    try {
+        const res = await fetch(`${api}/auth/2fa/setup`, { method: 'POST', headers: _authHeaders() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Setup failed');
+        body.innerHTML = `
+            <p>Scan this with Google Authenticator (or any TOTP app), then enter the 6-digit code to turn on 2FA.</p>
+            <div class="twofa-qr"><img src="${data.qrSvg}" alt="2FA QR code"></div>
+            <p class="twofa-secret">Can't scan? Enter this key manually:<br><code>${data.secret}</code></p>
+            <div class="input-group">
+                <label for="twoFAEnableCode">6-digit code</label>
+                <input type="text" id="twoFAEnableCode" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code">
+            </div>
+            <button class="btn btn-primary" id="twoFAEnableBtn">Enable 2FA</button>
+            <div id="twoFAMsg" class="login-message"></div>
+        `;
+        document.getElementById('twoFAEnableBtn').addEventListener('click', confirm2FAEnable);
+        const codeInput = document.getElementById('twoFAEnableCode');
+        if (codeInput) codeInput.focus();
+    } catch (e) {
+        body.innerHTML = `<div class="login-message error">${e.message || 'Setup failed'}</div>`;
+    }
+}
+
+async function confirm2FAEnable() {
+    const input = document.getElementById('twoFAEnableCode');
+    const msg = document.getElementById('twoFAMsg');
+    const code = input ? input.value.trim() : '';
+    if (!code) { msg.className = 'login-message error'; msg.textContent = 'Enter the code from your app.'; return; }
+    const api = window.API_BASE_URL || '';
+    try {
+        const res = await fetch(`${api}/auth/2fa/enable`, { method: 'POST', headers: _authHeaders(), body: JSON.stringify({ code }) });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            msg.className = 'login-message success';
+            msg.textContent = "2FA enabled — you'll enter a code on your next login.";
+            setTimeout(() => render2FAEnabledView(document.getElementById('twoFABody')), 1300);
+        } else {
+            msg.className = 'login-message error';
+            msg.textContent = data.detail || 'Invalid code';
+            if (input) { input.value = ''; input.focus(); }
+        }
+    } catch (e) {
+        msg.className = 'login-message error'; msg.textContent = 'Server error. Try again.';
+    }
+}
+
+function render2FAEnabledView(body) {
+    body.innerHTML = `
+        <div class="login-message success">✓ Two-factor authentication is ON. You'll be asked for a code from your app each login.</div>
+        <p style="margin-top:16px;">To turn it off, enter a current code from your authenticator:</p>
+        <div class="input-group">
+            <label for="twoFADisableCode">6-digit code</label>
+            <input type="text" id="twoFADisableCode" inputmode="numeric" maxlength="6" placeholder="123456" autocomplete="one-time-code">
+        </div>
+        <button class="btn btn-secondary" id="twoFADisableBtn">Disable 2FA</button>
+        <div id="twoFAMsg" class="login-message"></div>
+    `;
+    document.getElementById('twoFADisableBtn').addEventListener('click', confirm2FADisable);
+}
+
+async function confirm2FADisable() {
+    const input = document.getElementById('twoFADisableCode');
+    const msg = document.getElementById('twoFAMsg');
+    const code = input ? input.value.trim() : '';
+    if (!code) { msg.className = 'login-message error'; msg.textContent = 'Enter a code to confirm.'; return; }
+    const api = window.API_BASE_URL || '';
+    try {
+        const res = await fetch(`${api}/auth/2fa/disable`, { method: 'POST', headers: _authHeaders(), body: JSON.stringify({ code }) });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            msg.className = 'login-message success'; msg.textContent = '2FA disabled.';
+            setTimeout(close2FAModal, 1000);
+        } else {
+            msg.className = 'login-message error'; msg.textContent = data.detail || 'Invalid code';
+            if (input) { input.value = ''; input.focus(); }
+        }
+    } catch (e) {
+        msg.className = 'login-message error'; msg.textContent = 'Server error. Try again.';
+    }
 }
 
 async function handleLogin(e) {
@@ -4848,7 +5053,14 @@ async function handleLogin(e) {
 
         const data = await response.json();
 
-        if (response.ok && data.success) {
+        if (response.ok && data.twoFARequired) {
+            // Password OK — now ask for the authenticator code.
+            window._twoFAToken = data.twoFAToken;
+            document.getElementById('loginPassword').value = '';
+            messageEl.className = 'login-message';
+            messageEl.textContent = '';
+            showTotpStep();
+        } else if (response.ok && data.success) {
             dashboardAuth.isLoggedIn = true;
             dashboardAuth.currentUser = data.user;
             dashboardAuth.token = data.token;
@@ -4886,6 +5098,13 @@ function showLoginScreen() {
     if (loginScreen) loginScreen.style.display = 'flex';
     if (mainApp) mainApp.style.display = 'none';
     if (logoutContainer) logoutContainer.style.display = 'none';
+
+    // Reset to the credentials step (in case we were mid-2FA).
+    window._twoFAToken = null;
+    const _lf = document.getElementById('loginForm');
+    const _tf = document.getElementById('totpForm');
+    if (_tf) _tf.style.display = 'none';
+    if (_lf) _lf.style.display = 'block';
 }
 
 function showDashboard() {

@@ -23,3 +23,6 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRES_HOURS = 24
 
 PORT = int(os.getenv("PORT", 3000))
+
+# Authenticator-app (TOTP) 2FA — label shown in Google Authenticator.
+TOTP_ISSUER = os.getenv("TOTP_ISSUER", "LifeVault")

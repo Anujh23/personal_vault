@@ -1,6 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from auth import hash_password, verify_password, create_token
+from auth import (
+    hash_password,
+    verify_password,
+    create_token,
+    generate_totp_secret,
+    totp_provisioning_uri,
+    verify_totp,
+    qr_svg_data_uri,
+    create_2fa_token,
+    decode_2fa_token,
+)
 from database import query_one, query, execute
 from dependencies import get_current_user, require_admin
 
@@ -31,7 +41,7 @@ async def login(body: LoginRequest):
         raise HTTPException(status_code=400, detail="Username and password required")
 
     row = await query_one(
-        "SELECT id, username, email, password_hash, full_name, role, is_active FROM users WHERE username = $1",
+        "SELECT id, username, email, password_hash, full_name, role, is_active, totp_enabled FROM users WHERE username = $1",
         body.username,
     )
     if row is None:
@@ -40,8 +50,12 @@ async def login(body: LoginRequest):
     if not row["is_active"]:
         raise HTTPException(status_code=403, detail="Account is disabled")
 
-    if not verify_password(body.password, row["password_hash"]):
+    if not row["password_hash"] or not verify_password(body.password, row["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    # 2FA gate — password OK, but require an authenticator code before the JWT.
+    if row["totp_enabled"]:
+        return {"twoFARequired": True, "twoFAToken": create_2fa_token(row["id"])}
 
     token = create_token(row["id"], row["username"], row["role"])
 
@@ -56,6 +70,89 @@ async def login(body: LoginRequest):
             "role": row["role"],
         },
     }
+
+
+# ─── Authenticator-app (TOTP) two-factor ─────────────────────────
+class TwoFAVerifyRequest(BaseModel):
+    twoFAToken: str
+    code: str
+
+
+class TwoFACodeRequest(BaseModel):
+    code: str
+
+
+@router.post("/2fa/verify")
+async def totp_verify(body: TwoFAVerifyRequest):
+    """Step 2 of login: verify the authenticator code, then issue the JWT."""
+    uid = decode_2fa_token(body.twoFAToken)
+    if uid is None:
+        raise HTTPException(status_code=401, detail="2FA session expired — please log in again")
+    row = await query_one(
+        "SELECT id, username, email, full_name, role, is_active, totp_secret, totp_enabled FROM users WHERE id = $1",
+        uid,
+    )
+    if row is None or not row["totp_enabled"] or not row["totp_secret"]:
+        raise HTTPException(status_code=401, detail="Two-factor is not set up")
+    if not row["is_active"]:
+        raise HTTPException(status_code=403, detail="Account is disabled")
+    if not verify_totp(row["totp_secret"], body.code):
+        raise HTTPException(status_code=401, detail="Invalid code")
+    token = create_token(row["id"], row["username"], row["role"])
+    return {
+        "success": True,
+        "token": token,
+        "user": {
+            "id": row["id"], "username": row["username"], "email": row["email"],
+            "fullName": row["full_name"], "role": row["role"],
+        },
+    }
+
+
+@router.get("/2fa/status")
+async def totp_status(user: dict = Depends(get_current_user)):
+    row = await query_one("SELECT totp_enabled FROM users WHERE id = $1", user["id"])
+    return {"enabled": bool(row and row["totp_enabled"])}
+
+
+@router.post("/2fa/setup")
+async def totp_setup(user: dict = Depends(get_current_user)):
+    """Return the enrollment secret + QR (not active until confirmed). Reuses an
+    existing un-confirmed secret so re-opening the dialog shows the SAME QR
+    (otherwise a re-scan would be needed each time)."""
+    row = await query_one("SELECT email, totp_secret, totp_enabled FROM users WHERE id = $1", user["id"])
+    if row and row["totp_enabled"]:
+        raise HTTPException(status_code=400, detail="2FA is already enabled — disable it first to re-enroll")
+    secret = row["totp_secret"] if (row and row["totp_secret"]) else generate_totp_secret()
+    if not (row and row["totp_secret"]):
+        await execute("UPDATE users SET totp_secret = $1 WHERE id = $2", secret, user["id"])
+    account = row["email"] if row and row["email"] else user["username"]
+    uri = totp_provisioning_uri(secret, account)
+    return {"secret": secret, "otpauthUri": uri, "qrSvg": qr_svg_data_uri(uri)}
+
+
+@router.post("/2fa/enable")
+async def totp_enable(body: TwoFACodeRequest, user: dict = Depends(get_current_user)):
+    row = await query_one("SELECT totp_secret, totp_enabled FROM users WHERE id = $1", user["id"])
+    if not row or not row["totp_secret"]:
+        raise HTTPException(status_code=400, detail="Start setup first")
+    if row["totp_enabled"]:
+        return {"success": True, "message": "Already enabled"}
+    if not verify_totp(row["totp_secret"], body.code):
+        raise HTTPException(status_code=401, detail="Invalid code — check your authenticator app")
+    await execute("UPDATE users SET totp_enabled = TRUE WHERE id = $1", user["id"])
+    return {"success": True, "message": "Two-factor authentication enabled"}
+
+
+@router.post("/2fa/disable")
+async def totp_disable(body: TwoFACodeRequest, user: dict = Depends(get_current_user)):
+    row = await query_one("SELECT totp_secret, totp_enabled FROM users WHERE id = $1", user["id"])
+    if not row or not row["totp_enabled"]:
+        return {"success": True, "message": "2FA is not enabled"}
+    if not verify_totp(row["totp_secret"], body.code):
+        raise HTTPException(status_code=401, detail="Invalid code")
+    await execute("UPDATE users SET totp_secret = NULL, totp_enabled = FALSE WHERE id = $1", user["id"])
+    return {"success": True, "message": "Two-factor authentication disabled"}
 
 
 @router.post("/register")

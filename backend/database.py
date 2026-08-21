@@ -56,7 +56,10 @@ async def ensure_schema():
     async with p.acquire() as conn:
         # # Shares for the stocks portfolio view.
         await conn.execute("ALTER TABLE stocks ADD COLUMN IF NOT EXISTS quantity NUMERIC")
-    logger.info("Schema ensured (stocks.quantity)")
+        # Authenticator-app (TOTP) 2FA.
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT")
+        await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE")
+    logger.info("Schema ensured (stocks.quantity, users.totp_*)")
 
 
 async def close_pool():
